@@ -639,20 +639,9 @@ app.get("/sitemap.xml", (req, res) => {
 </urlset>`);
 });
 
-// Automatic Google Search Console HTML Verification File Handler
-// Handles any google[hash].html verification requests automatically
-app.get(/^\/google[a-zA-Z0-9]+\.html$/, (req, res) => {
+// Automatic Google Search Console HTML Verification File Handlers
+app.get(/^\/google.*\.html$/, (req, res) => {
   const filename = req.path.replace(/^\//, "");
-  const publicPath = path.join(process.cwd(), "public", filename);
-  const distPath = path.join(process.cwd(), "dist", filename);
-
-  if (fs.existsSync(publicPath)) {
-    return res.sendFile(publicPath);
-  }
-  if (fs.existsSync(distPath)) {
-    return res.sendFile(distPath);
-  }
-
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   return res.status(200).send(`google-site-verification: ${filename}`);
