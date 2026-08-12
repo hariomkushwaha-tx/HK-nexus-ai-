@@ -18,6 +18,14 @@ export interface ChatMessage {
   isVoiceMessage?: boolean;
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface UserSettings {
   memoryEnabled: boolean;
   language: string;

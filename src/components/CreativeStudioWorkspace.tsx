@@ -15,6 +15,13 @@ import {
 } from "lucide-react";
 import { GeneratedImageItem } from "../types";
 
+const SAMPLE_PROMPTS = [
+  { label: "🦁 Tiger Logo", prompt: "Futuristic neon tiger logo emblem for HK Tech World, vector minimalist icon, dark background", type: "logo", style: "vector_flat" },
+  { label: "🚀 Space Banner", prompt: "Cyberpunk deep space exploration banner with glowing stars and futuristic starship", type: "banner", style: "cyberpunk" },
+  { label: "🏎️ Supercar Photo", prompt: "Hyper-realistic futuristic electric supercar at night in Tokyo city with rain reflections", type: "general", style: "photorealistic" },
+  { label: "👑 Gold Emblem", prompt: "3D Luxury golden crown badge with metallic reflection and diamond accents", type: "logo", style: "gold_luxury" },
+];
+
 export const CreativeStudioWorkspace: React.FC = () => {
   const [prompt, setPrompt] = useState("");
   const [studioType, setStudioType] = useState<"general" | "logo" | "banner" | "poster" | "bg_remove" | "upscale">("general");
@@ -44,11 +51,12 @@ export const CreativeStudioWorkspace: React.FC = () => {
     }
   ]);
 
-  const handleGenerate = async () => {
-    if (!prompt.trim() && studioType !== "bg_remove" && studioType !== "upscale") return;
+  const handleGenerate = async (customPrompt?: string) => {
+    const targetPrompt = customPrompt || prompt;
+    if (!targetPrompt.trim() && studioType !== "bg_remove" && studioType !== "upscale") return;
     setIsLoading(true);
 
-    const actualPrompt = prompt || `HK Nexus Studio AI ${studioType} designed by Hariom Kushwaha`;
+    const actualPrompt = targetPrompt || `HK Nexus Studio AI ${studioType} designed by Hariom Kushwaha`;
 
     try {
       const response = await fetch("/api/image/generate", {
@@ -69,7 +77,7 @@ export const CreativeStudioWorkspace: React.FC = () => {
         prompt: actualPrompt,
         type: studioType as any,
         style: stylePreset,
-        imageUrl: data.imageUrl || "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=800&q=80",
+        imageUrl: data.imageUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(actualPrompt)}?width=800&height=800&nologo=true&seed=${Date.now()}`,
         timestamp: "Just now",
         aspectRatio
       };
@@ -78,6 +86,18 @@ export const CreativeStudioWorkspace: React.FC = () => {
       setActiveImage(newImg);
     } catch (err) {
       console.error(err);
+      // Fallback pollinations url
+      const fallbackImg: GeneratedImageItem = {
+        id: `gen-${Date.now()}`,
+        prompt: actualPrompt,
+        type: studioType as any,
+        style: stylePreset,
+        imageUrl: `https://image.pollinations.ai/prompt/${encodeURIComponent(actualPrompt)}?width=800&height=800&nologo=true&seed=${Date.now()}`,
+        timestamp: "Just now",
+        aspectRatio
+      };
+      setGallery((prev) => [fallbackImg, ...prev]);
+      setActiveImage(fallbackImg);
     } finally {
       setIsLoading(false);
     }
@@ -90,29 +110,29 @@ export const CreativeStudioWorkspace: React.FC = () => {
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-cyan-400" />
-            <span>Image & Logo Generator</span>
+            <span>HK Nexus Image, Photo & Logo Generator</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Create logos, banners, or images easily
+            Create high quality logos, banners, HD photos, or posters instantly
           </p>
         </div>
 
         {/* Studio Type Selector */}
         <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
           {[
-            { id: "general", label: "🎨 Image" },
+            { id: "general", label: "🎨 Photo/Image" },
             { id: "logo", label: "🏷️ Logo" },
             { id: "banner", label: "🖼️ Banner" },
             { id: "poster", label: "📜 Poster" },
             { id: "bg_remove", label: "✂️ Bg Remove" },
-            { id: "upscale", label: "🔍 Upscale" },
+            { id: "upscale", label: "🔍 HD Upscale" },
           ].map((type) => (
             <button
               key={type.id}
               onClick={() => setStudioType(type.id as any)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                 studioType === type.id
-                  ? "bg-cyan-600 text-white font-semibold"
+                  ? "bg-cyan-600 text-white font-semibold shadow-md shadow-cyan-950"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -120,6 +140,25 @@ export const CreativeStudioWorkspace: React.FC = () => {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Quick sample prompt chips */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold text-slate-400">⚡ Quick Ideas:</span>
+        {SAMPLE_PROMPTS.map((sp, idx) => (
+          <button
+            key={idx}
+            onClick={() => {
+              setPrompt(sp.prompt);
+              setStudioType(sp.type as any);
+              setStylePreset(sp.style);
+              handleGenerate(sp.prompt);
+            }}
+            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-[11px] transition-all flex items-center space-x-1"
+          >
+            <span>{sp.label}</span>
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -170,7 +209,7 @@ export const CreativeStudioWorkspace: React.FC = () => {
             <select
               value={stylePreset}
               onChange={(e) => setStylePreset(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
             >
               <option value="cyberpunk">Cyberpunk Neon</option>
               <option value="3d_render">3D Octane Render</option>
@@ -182,9 +221,9 @@ export const CreativeStudioWorkspace: React.FC = () => {
           </div>
 
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={isLoading}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 text-white font-bold text-sm shadow-xl shadow-cyan-500/25 hover:opacity-90 transition-all flex items-center justify-center space-x-2"
+            className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 text-white font-bold text-sm shadow-xl shadow-cyan-500/25 hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center space-x-2"
           >
             {isLoading ? (
               <>
@@ -204,13 +243,27 @@ export const CreativeStudioWorkspace: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Main Active Canvas */}
           <div className="bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-lg min-h-[360px] flex flex-col items-center justify-center relative">
-            {activeImage ? (
+            {isLoading ? (
+              <div className="py-16 text-center space-y-3">
+                <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-cyan-400 font-bold text-sm">HK Studio AI Image & Logo Render...</p>
+                <p className="text-slate-500 text-xs">Generating high definition visual artwork</p>
+              </div>
+            ) : activeImage ? (
               <div className="w-full flex flex-col items-center">
                 <div className="relative max-h-[400px] rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 shadow-2xl">
                   <img
                     src={activeImage.imageUrl}
                     alt={activeImage.prompt}
+                    referrerPolicy="no-referrer"
                     className="max-h-[380px] object-contain rounded-xl"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (!target.dataset.failed) {
+                        target.dataset.failed = "true";
+                        target.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(activeImage.prompt)}?width=800&height=800&nologo=true`;
+                      }
+                    }}
                   />
                 </div>
 
@@ -238,7 +291,7 @@ export const CreativeStudioWorkspace: React.FC = () => {
               <div className="text-center space-y-3 py-12">
                 <ImageIcon className="w-12 h-12 text-slate-600 mx-auto" />
                 <p className="text-sm font-semibold text-slate-300">Choose specs & click Generate Design</p>
-                <p className="text-xs text-slate-500">Supports Logo, Banner, Poster & Photo Upscaling</p>
+                <p className="text-xs text-slate-500">Supports HD Photos, Logos, Banners, Posters & Cutouts</p>
               </div>
             )}
           </div>
@@ -257,7 +310,19 @@ export const CreativeStudioWorkspace: React.FC = () => {
                     activeImage?.id === item.id ? "border-cyan-400 ring-2 ring-cyan-500/50" : "border-slate-800 hover:border-slate-700"
                   }`}
                 >
-                  <img src={item.imageUrl} alt={item.prompt} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <img
+                    src={item.imageUrl}
+                    alt={item.prompt}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (!target.dataset.failed) {
+                        target.dataset.failed = "true";
+                        target.src = `https://picsum.photos/seed/${encodeURIComponent(item.prompt)}/800/800`;
+                      }
+                    }}
+                  />
                   <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end">
                     <span className="text-[10px] font-bold text-cyan-300 capitalize">{item.type}</span>
                     <p className="text-[10px] text-white truncate">{item.prompt}</p>

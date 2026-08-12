@@ -38,20 +38,36 @@ function getGroqClient() {
   return new Groq({ apiKey });
 }
 
-const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI, a world-class, ultra-powerful multi-modal artificial intelligence assistant.
+const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI, an ultra-intelligent, highly capable, and thoughtful multi-modal artificial intelligence assistant (developed by Hariom Kushwaha, Mauranipur, India).
 
-Response Style Guidelines:
-- Give very clear, accurate, easy-to-understand, and neatly structured responses.
-- Use smooth, natural, and polite tone in Hindi, English, Hinglish, or whichever language the user speaks.
-- Format complex explanations or answers using clean bullet points and short paragraphs. Avoid clutter or unnecessary fluff.
+CRITICAL CONVERSATIONAL & RESPONSE QUALITY RULES (MANDATORY):
+1. DIRECT & THOUGHTFUL RESPONSES: Always answer directly, thoughtfully, and intelligently to what the user actually asks. Talk smoothly, naturally, and warmly in conversational Hindi, Hinglish, or English.
+2. ABSOLUTELY NO REPETITIVE FEATURE MENUS OR CANNED LISTS:
+   - NEVER output bulleted option lists of your capabilities (such as "1. HD इमेज बनाना, 2. कोडिंग, 3. गणित हल करना, 4. क्रिएटिव राइटिंग...") or canned closing questions ("आज क्या करने का मूड है?") in casual conversation, greetings, or standard replies!
+   - ONLY show a capability menu if the user explicitly asks "आप क्या-क्या कर सकते हैं?" or "show your features".
+   - For casual prompts like "और बताओ", "नमस्ते", "Hi", "और क्या हाल है": respond warmly, naturally, and conversationally like a true friend and smart AI assistant (e.g. "सब एकदम बढ़िया भाई! बताइए, आज किस चीज़ पर काम करना है या क्या चर्चा करनी है?"), without attaching robotic menu lists.
+3. HIGH INTELLIGENCE & DEPTH: Give accurate, logical, clear, and comprehensive answers like ChatGPT, Claude, and Gemini. Never give superficial or lazy answers.
+4. STRUCTURE & FORMATTING:
+   - Use clean, elegant Markdown.
+   - For Code: Provide complete, production-ready, bug-free code with proper syntax highlighting.
+   - For Math & Logic: Show step-by-step reasoning.
+5. NO REPETITIVE FLUFF: Get straight to the point without repeating intros or canned signatures in every message.
 
-Identity & Creator Rules (IMPORTANT: ONLY provide these details if the user explicitly asks):
-- Default behavior: Focus directly on solving the user's prompt without introducing creator details.
-- If asked who built or created you ("किसने बनाया है" / "who created you"): State clearly "मुझे HK Tech World ने बनाया है।".
-- If asked who is the owner or founder ("Owner / मालिक कौन है" / "who is the owner"): State clearly "इसके Owner और मालिक Hariom Kushwaha हैं।".
-- If asked where Hariom Kushwaha is from ("Hariom Kushwaha कहाँ के हैं" / "where is Hariom Kushwaha from"): State clearly "Hariom Kushwaha मौरानीपुर (Mauranipur) के रहने वाले हैं।".`;
+Image & Logo Generation Guidelines:
+- If the user explicitly asks you to generate, create, draw, or make an image, photo, logo, banner, poster, wallpaper, icon, or visual artwork (e.g. "इमेज बनाओ", "फोटो बनाओ", "लोगो बना दो", "create image of...", "draw a...", "make logo"):
+  You MUST include the generated image in your response using Markdown syntax:
+  ![Description](https://image.pollinations.ai/prompt/URL_ENCODED_DETAILED_ENGLISH_PROMPT?width=1024&height=1024&nologo=true&seed=RANDOM_SEED&model=flux)
+  Ensure URL_ENCODED_DETAILED_ENGLISH_PROMPT is a clear, descriptive English prompt describing the image/logo/photo in detail.
+  Follow the image with a short, polite message explaining what you created.
 
-function getDynamicSystemInstruction() {
+Identity & Origin Rules (CRITICAL - Proudly Made in India 🇮🇳):
+- You are HK Nexus AI, a proud 100% Made in India AI system (मेड इन इंडिया AI).
+- Creator & Developer: Hariom Kushwaha (HK Tech World), an Indian innovator and developer from Mauranipur (Jhansi, Uttar Pradesh, India).
+- If asked about country, origin, or Made in India ("कहाँ का AI है", "किस देश का है", "Made in India है?", "Where are you from?"): State proudly and clearly: "मैं 100% मेड इन इंडिया (Made in India 🇮🇳) AI हूँ! मुझे भारत (India) के Hariom Kushwaha (मौरानीपुर, यूपी) ने बनाया है।".
+- If asked who built or created you ("किसने बनाया है" / "who created you"): State clearly "मुझे भारत के Hariom Kushwaha (HK Tech World, Mauranipur, India) ने बनाया है।".
+- If asked who is the owner or founder ("Owner / मालिक कौन है" / "who is the owner"): State clearly "इसके Owner और Founder Hariom Kushwaha (मौरानीपुर, भारत) हैं।".`;
+
+function getDynamicSystemInstruction(persona: string = "nexus_prime", language: string = "auto") {
   const now = new Date();
   const istDateString = now.toLocaleDateString("hi-IN", {
     timeZone: "Asia/Kolkata",
@@ -73,7 +89,31 @@ function getDynamicSystemInstruction() {
     day: "numeric",
   });
 
-  return `${SYSTEM_INSTRUCTION_BASE}
+  let personaInstruction = "";
+  if (persona === "hk_genius") {
+    personaInstruction = "\n\nAI Persona: HK Genius (Hariom Kushwaha Tech Special). Act as an expert tech authority, innovator, and creative genius. Give deep, highly insightful answers with practical code and tech strategy.";
+  } else if (persona === "friendly_tutor") {
+    personaInstruction = "\n\nAI Persona: Friendly Tutor. Act as a warm, patient, encouraging teacher. Explain complex ideas using simple analogies, step-by-step breakdowns, and encouraging words.";
+  } else if (persona === "code_architect") {
+    personaInstruction = "\n\nAI Persona: Code Architect. Focus on software architecture, clean code principles, performance optimizations, bug debugging, and robust full-stack design.";
+  } else {
+    personaInstruction = "\n\nAI Persona: HK Nexus Prime. Act as a fast, ultra-smart, versatile, and highly capable all-rounder AI assistant.";
+  }
+
+  let langInstruction = "";
+  if (language === "hi") {
+    langInstruction = "\nLanguage Requirement: Primary language is Hindi (हिंदी). Respond in polite, clear, natural Hindi.";
+  } else if (language === "hinglish") {
+    langInstruction = "\nLanguage Requirement: Primary language is Hinglish (Hindi written in Roman script mixed naturally with English tech terms).";
+  } else if (language === "en") {
+    langInstruction = "\nLanguage Requirement: Primary language is English. Respond in clear, professional English.";
+  } else if (language === "es") {
+    langInstruction = "\nLanguage Requirement: Primary language is Spanish (Español).";
+  } else if (language === "fr") {
+    langInstruction = "\nLanguage Requirement: Primary language is French (Français).";
+  }
+
+  return `${SYSTEM_INSTRUCTION_BASE}${personaInstruction}${langInstruction}
 
 Current Live Date & Time Context:
 - Today's Date (IST): ${istDateString} (${enDateString})
@@ -93,9 +133,10 @@ function getFriendlyErrorMessage(err: any): string {
 // 1. CHAT API
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, history = [], memory = true, language = "auto", mode = "general", image = null } = req.body;
+    const { message, history = [], memory = true, language = "auto", persona = "nexus_prime", mode = "general", image = null } = req.body;
 
     const ai = getGenAIClient();
+    const sysInstruction = getDynamicSystemInstruction(persona, language);
     
     // Prepare contents
     const contents: any[] = [];
@@ -142,7 +183,7 @@ app.post("/api/chat", async (req, res) => {
         model: modelName,
         contents,
         config: {
-          systemInstruction: getDynamicSystemInstruction(),
+          systemInstruction: sysInstruction,
           temperature: 0.7,
           tools: mode === "research" || message.toLowerCase().includes("latest") || message.toLowerCase().includes("news") ? [{ googleSearch: {} }] : undefined,
         },
@@ -156,7 +197,7 @@ app.post("/api/chat", async (req, res) => {
         try {
           console.log("Using Groq fallback API...");
           const groqMessages: any[] = [
-            { role: "system", content: getDynamicSystemInstruction() }
+            { role: "system", content: sysInstruction }
           ];
           if (memory && Array.isArray(history)) {
             for (const m of history.slice(-6)) {
@@ -194,7 +235,7 @@ app.post("/api/chat", async (req, res) => {
         model: "gemini-3.6-flash",
         contents,
         config: {
-          systemInstruction: getDynamicSystemInstruction(),
+          systemInstruction: sysInstruction,
           temperature: 0.7,
         },
       });
@@ -227,13 +268,14 @@ app.post("/api/chat", async (req, res) => {
 // 1.1 CHAT STREAMING API (Ultra-Fast Response)
 app.post("/api/chat/stream", async (req, res) => {
   try {
-    const { message, history = [], memory = true, language = "auto", mode = "general", image = null } = req.body;
+    const { message, history = [], memory = true, language = "auto", persona = "nexus_prime", mode = "general", image = null } = req.body;
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
     const ai = getGenAIClient();
+    const sysInstruction = getDynamicSystemInstruction(persona, language);
     const contents: any[] = [];
 
     if (memory && Array.isArray(history)) {
@@ -277,7 +319,7 @@ app.post("/api/chat/stream", async (req, res) => {
         model: modelName,
         contents,
         config: {
-          systemInstruction: getDynamicSystemInstruction(),
+          systemInstruction: sysInstruction,
           temperature: 0.7,
           tools: mode === "research" || message.toLowerCase().includes("latest") || message.toLowerCase().includes("news") ? [{ googleSearch: {} }] : undefined,
         },
@@ -289,7 +331,7 @@ app.post("/api/chat/stream", async (req, res) => {
         try {
           console.log("Streaming with Groq fallback...");
           const groqMessages: any[] = [
-            { role: "system", content: getDynamicSystemInstruction() }
+            { role: "system", content: sysInstruction }
           ];
           if (memory && Array.isArray(history)) {
             for (const m of history.slice(-6)) {
@@ -325,7 +367,7 @@ app.post("/api/chat/stream", async (req, res) => {
         model: "gemini-3.6-flash",
         contents,
         config: {
-          systemInstruction: getDynamicSystemInstruction(),
+          systemInstruction: sysInstruction,
           temperature: 0.7,
         },
       });
@@ -405,14 +447,37 @@ app.post("/api/image/generate", async (req, res) => {
   try {
     const { prompt, type = "general", aspectRatio = "1:1", style = "cyberpunk" } = req.body;
     
-    const fullPrompt = `HK Nexus AI Design [Type: ${type}, Style: ${style}]: ${prompt}. High quality, 8k resolution, clean lighting.`;
+    const userPromptClean = (prompt || "Futuristic AI Mascot Logo").trim();
+    const styleModifier = style ? `, ${style} style` : "";
+    const typeModifier = type === "logo" ? ", professional vector logo design, isolated, high definition" 
+      : type === "banner" ? ", wide banner layout, cover photo art" 
+      : type === "poster" ? ", poster art design, vivid typography" 
+      : type === "bg_remove" ? ", transparent background style, clean edges, isolated cutout" 
+      : type === "upscale" ? ", 8k resolution, ultra detailed, photorealistic super-resolution" 
+      : "";
+
+    const cleanDescriptivePrompt = `${userPromptClean}${styleModifier}${typeModifier}, 8k resolution, masterpiece, detailed lighting`;
+
+    // Calculate width and height based on aspect ratio
+    let width = 1024;
+    let height = 1024;
+    if (aspectRatio === "16:9") {
+      width = 1280;
+      height = 720;
+    } else if (aspectRatio === "9:16") {
+      width = 720;
+      height = 1280;
+    } else if (aspectRatio === "4:3") {
+      width = 1024;
+      height = 768;
+    }
 
     const ai = getGenAIClient();
 
     try {
       const response = await ai.models.generateImages({
         model: "imagen-3.0-generate-002",
-        prompt: fullPrompt,
+        prompt: cleanDescriptivePrompt,
         config: {
           numberOfImages: 1,
           aspectRatio: (aspectRatio as any) || "1:1",
@@ -426,36 +491,33 @@ app.post("/api/image/generate", async (req, res) => {
         return res.json({
           success: true,
           imageUrl,
-          prompt,
+          prompt: userPromptClean,
           type,
           creator: "Hariom Kushwaha (HK Tech World)",
         });
       }
     } catch (genErr: any) {
-      // Graceful fallback to Pollinations AI image generator
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=800&height=800&nologo=true`;
-      return res.json({
-        success: true,
-        imageUrl: pollinationsUrl,
-        prompt,
-        type,
-        style,
-        message: "Generated via HK Nexus AI visual renderer.",
-        creator: "Hariom Kushwaha (HK Tech World)",
-      });
+      console.warn("Imagen API notice, switching to Flux renderer:", genErr?.message || genErr);
     }
 
-    const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=800&height=800&nologo=true`;
-    res.json({
+    // High Quality Pollinations Flux Renderer Fallback
+    const randomSeed = Math.floor(Math.random() * 9999999);
+    const encodedPrompt = encodeURIComponent(cleanDescriptivePrompt);
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true&seed=${randomSeed}&model=flux`;
+
+    return res.json({
       success: true,
-      imageUrl: fallbackUrl,
-      prompt,
+      imageUrl: pollinationsUrl,
+      prompt: userPromptClean,
       type,
       style,
+      aspectRatio,
+      message: "Generated via HK Nexus Flux HD visual engine.",
       creator: "Hariom Kushwaha (HK Tech World)",
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error("Image API catch error:", error);
+    res.status(500).json({ success: false, error: error.message || "Image generation failed" });
   }
 });
 

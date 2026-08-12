@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ActiveTab, UserSettings } from "./types";
 import { Navbar } from "./components/Navbar";
 import { ChatWorkspace } from "./components/ChatWorkspace";
@@ -10,19 +10,43 @@ import { LearningWorkspace } from "./components/LearningWorkspace";
 import { CreatorHubWorkspace } from "./components/CreatorHubWorkspace";
 import { SettingsModal } from "./components/SettingsModal";
 
+const DEFAULT_SETTINGS: UserSettings = {
+  memoryEnabled: true,
+  language: "auto",
+  voiceGender: "female",
+  selectedVoice: "Kore",
+  voiceSpeed: 1,
+  autoReadResponse: false,
+  aiPersona: "nexus_prime",
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const newChatRef = React.useRef<(() => void) | null>(null);
 
-  const [settings, setSettings] = useState<UserSettings>({
-    memoryEnabled: true,
-    language: "auto",
-    voiceGender: "female",
-    selectedVoice: "Kore",
-    voiceSpeed: 1,
-    autoReadResponse: false,
-    aiPersona: "nexus_prime",
+  const [settings, setSettings] = useState<UserSettings>(() => {
+    try {
+      const saved = localStorage.getItem("hk_nexus_user_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      }
+    } catch (e) {
+      console.error("Error loading settings:", e);
+    }
+    return DEFAULT_SETTINGS;
   });
+
+  // Save settings whenever changed
+  useEffect(() => {
+    try {
+      localStorage.setItem("hk_nexus_user_settings", JSON.stringify(settings));
+    } catch (e) {
+      console.error("Error saving settings:", e);
+    }
+  }, [settings]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col">
@@ -33,12 +57,22 @@ export default function App() {
         settings={settings}
         setSettings={setSettings}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        onNewChat={() => newChatRef.current?.()}
       />
 
       {/* Main Content Workspace */}
       <main className="flex-1 overflow-x-hidden">
         {activeTab === "chat" && (
-          <ChatWorkspace settings={settings} setSettings={setSettings} />
+          <ChatWorkspace 
+            settings={settings} 
+            setSettings={setSettings} 
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            onNewChatRef={newChatRef}
+          />
         )}
 
         {activeTab === "vision" && <VisionWorkspace />}

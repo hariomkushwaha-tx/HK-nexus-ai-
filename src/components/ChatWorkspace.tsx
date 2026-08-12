@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ChatMessage, UserSettings } from "../types";
+import { ChatMessage, UserSettings, ChatSession } from "../types";
 import { FormattedMessage } from "./FormattedMessage";
+import Sidebar from "./Sidebar";
 import { 
   Send, 
   Mic, 
@@ -20,38 +21,80 @@ import {
   Info,
   ShieldCheck,
   Zap,
-  Paperclip
+  Paperclip,
+  Plus,
+  Settings,
+  Download
 } from "lucide-react";
 
 interface ChatWorkspaceProps {
   settings: UserSettings;
   setSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
+  onOpenSettings?: () => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  onNewChatRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSettings }) => {
-  const WELCOME_MESSAGE: ChatMessage = {
-    id: "msg-welcome",
-    role: "model",
-    content: `नमस्ते! मैं HK Nexus AI हूँ।
-
-मैं इंसानों जैसी प्राकृतिक बातचीत, फोटो समझना, OCR, कोडिंग, गणित, वॉइस चैट, इमेज और वीडियो जनरेशन, और वेब से ताज़ा जानकारी प्राप्त कर सकता हूँ।
-
-आप मुझसे हिंदी, अंग्रेज़ी या किसी भी भाषा में कुछ भी पूछ सकते हैं!`,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  };
-
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ 
+  settings, 
+  setSettings, 
+  onOpenSettings,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  onNewChatRef
+}) => {
+  // Multi-chat sessions state
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
-      const saved = localStorage.getItem("hk_nexus_chat_history");
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const savedSessions = localStorage.getItem("hk_nexus_chat_sessions");
+      if (savedSessions) {
+        const parsed = JSON.parse(savedSessions);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
+      // Migration from single chat history
+      const savedHistory = localStorage.getItem("hk_nexus_chat_history");
+      if (savedHistory) {
+        const parsedHistory = JSON.parse(savedHistory);
+        if (Array.isArray(parsedHistory) && parsedHistory.length > 0) {
+          const firstMsg = parsedHistory.find((m: any) => m.role === "user");
+          const title = firstMsg?.content 
+            ? firstMsg.content.slice(0, 28) + (firstMsg.content.length > 28 ? "..." : "")
+            : "Saved Conversation";
+          return [{
+            id: Date.now().toString(),
+            title,
+            messages: parsedHistory,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }];
+        }
+      }
     } catch (e) {
-      console.error("Error loading chat history:", e);
+      console.error("Error restoring sessions:", e);
     }
-    return [WELCOME_MESSAGE];
+    return [{
+      id: Date.now().toString(),
+      title: "New Chat",
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }];
   });
+
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
+    try {
+      const savedActive = localStorage.getItem("hk_nexus_active_session_id");
+      if (savedActive && sessions.some(s => s.id === savedActive)) {
+        return savedActive;
+      }
+    } catch (e) {}
+    return sessions[0]?.id || Date.now().toString();
+  });
+
+  // Current active session & messages
+  const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
+  const messages = activeSession ? activeSession.messages : [];
 
   const [inputMessage, setInputMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -62,54 +105,164 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Save messages to LocalStorage
+  // Auto-expand textarea as user types
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+    }
+  }, [inputMessage]);
+
+  // Save sessions to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem("hk_nexus_chat_history", JSON.stringify(messages));
+      localStorage.setItem("hk_nexus_chat_sessions", JSON.stringify(sessions));
+      localStorage.setItem("hk_nexus_active_session_id", activeSessionId);
     } catch (e) {
-      console.error("Error saving chat history:", e);
+      console.error("Error saving sessions:", e);
     }
-  }, [messages]);
+  }, [sessions, activeSessionId]);
 
-  // Event listener for global clear history trigger
-  useEffect(() => {
-    const handleClearGlobal = () => {
-      setMessages([WELCOME_MESSAGE]);
-      localStorage.removeItem("hk_nexus_chat_history");
+  // Action: Create New Chat
+  const handleNewChat = () => {
+    if (activeAudioRef.current) activeAudioRef.current.pause();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setSpeakingMsgId(null);
+
+    // If current active session is already empty, just stay on it
+    if (activeSession && activeSession.messages.length === 0) {
+      return;
+    }
+
+    const newSession: ChatSession = {
+      id: Date.now().toString(),
+      title: "New Chat",
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
-    window.addEventListener("clear-hk-chat-history", handleClearGlobal);
-    return () => window.removeEventListener("clear-hk-chat-history", handleClearGlobal);
-  }, []);
+
+    setSessions((prev) => [newSession, ...prev]);
+    setActiveSessionId(newSession.id);
+  };
+
+  // Connect handleNewChat ref for parent Navbar trigger
+  useEffect(() => {
+    if (onNewChatRef) {
+      onNewChatRef.current = handleNewChat;
+    }
+  }, [activeSession, sessions]);
+
+  // Action: Delete Single Session
+  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      if (updated.length === 0) {
+        const fresh: ChatSession = {
+          id: Date.now().toString(),
+          title: "New Chat",
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        setActiveSessionId(fresh.id);
+        return [fresh];
+      }
+      if (activeSessionId === id) {
+        setActiveSessionId(updated[0].id);
+      }
+      return updated;
+    });
+  };
+
+  // Action: Clear All Sessions
+  const handleClearAllSessions = () => {
+    if (activeAudioRef.current) activeAudioRef.current.pause();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setSpeakingMsgId(null);
+
+    const fresh: ChatSession = {
+      id: Date.now().toString(),
+      title: "New Chat",
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    setSessions([fresh]);
+    setActiveSessionId(fresh.id);
+    localStorage.removeItem("hk_nexus_chat_sessions");
+    localStorage.removeItem("hk_nexus_active_session_id");
+    localStorage.removeItem("hk_nexus_chat_history");
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
   const handleClearHistory = () => {
-    if (messages.length <= 1) return;
-    if (window.confirm("क्या आप अपनी पूरी चैट हिस्ट्री डिलीट करना चाहते हैं? (Delete All Chat History)")) {
-      if (activeAudioRef.current) {
-        activeAudioRef.current.pause();
-      }
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+    if (messages.length === 0) return;
+    if (window.confirm("क्या आप अपनी पूरी चैट हिस्ट्री डिलीट करना चाहते हैं?")) {
+      if (activeAudioRef.current) activeAudioRef.current.pause();
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       setSpeakingMsgId(null);
-      setMessages([WELCOME_MESSAGE]);
-      localStorage.removeItem("hk_nexus_chat_history");
+
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === activeSessionId) {
+            return {
+              ...s,
+              title: "New Chat",
+              messages: [],
+              updatedAt: Date.now(),
+            };
+          }
+          return s;
+        })
+      );
     }
   };
 
   const deleteSingleMessage = (msgId: string) => {
-    if (messages.length <= 1) {
-      setMessages([WELCOME_MESSAGE]);
-      localStorage.removeItem("hk_nexus_chat_history");
-      return;
-    }
-    setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === activeSessionId) {
+          return {
+            ...s,
+            messages: s.messages.filter((m) => m.id !== msgId),
+            updatedAt: Date.now(),
+          };
+        }
+        return s;
+      })
+    );
+  };
+
+  const exportChatAsTxt = () => {
+    if (messages.length === 0) return;
+    const textContent = messages
+      .map((m) => {
+        const sender = m.role === "user" ? "You" : "HK Nexus AI";
+        const time = m.timestamp || "";
+        return `[${time}] ${sender}:\n${m.content}\n${"-".repeat(40)}`;
+      })
+      .join("\n\n");
+
+    const fullHeader = `HK Nexus AI - Chat Backup\nExported on: ${new Date().toLocaleString()}\nTotal Messages: ${messages.length}\n${"=".repeat(50)}\n\n`;
+    const blob = new Blob([fullHeader + textContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `HK_Nexus_AI_Chat_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Handle Speech Recognition (Speech-to-Text)
@@ -278,7 +431,27 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
       image: selectedImage || undefined,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const currentSessionId = activeSessionId;
+    const currentSession = sessions.find((s) => s.id === currentSessionId) || activeSession;
+    const isFirstMsg = currentSession.messages.length === 0 || currentSession.title === "New Chat";
+    const autoTitle = isFirstMsg 
+      ? messageText.trim().slice(0, 28) + (messageText.trim().length > 28 ? "..." : "")
+      : currentSession.title;
+
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === currentSessionId) {
+          return {
+            ...s,
+            title: autoTitle,
+            messages: [...s.messages, userMsg],
+            updatedAt: Date.now(),
+          };
+        }
+        return s;
+      })
+    );
+
     setInputMessage("");
     const imgForPayload = selectedImage;
     setSelectedImage(null);
@@ -286,15 +459,26 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
 
     const modelMsgId = `mod-${Date.now()}`;
     // Add placeholder message for fast streaming
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: modelMsgId,
-        role: "model",
-        content: "",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === currentSessionId) {
+          return {
+            ...s,
+            messages: [
+              ...s.messages,
+              {
+                id: modelMsgId,
+                role: "model",
+                content: "",
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              },
+            ],
+            updatedAt: Date.now(),
+          };
+        }
+        return s;
+      })
+    );
 
     try {
       // 1. Try Ultra-Fast Streaming Endpoint
@@ -303,9 +487,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg.content,
-          history: messages.map(m => ({ role: m.role, content: m.content })),
+          history: currentSession.messages.map(m => ({ role: m.role, content: m.content })),
           memory: settings.memoryEnabled,
           language: settings.language,
+          persona: settings.aiPersona || "nexus_prime",
           mode: chatMode,
           image: imgForPayload,
         }),
@@ -316,33 +501,54 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
         const decoder = new TextDecoder("utf-8");
         let fullText = "";
         let sources: any[] = [];
+        let buffer = "";
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n\n");
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || ""; // Keep the tail chunk if incomplete
 
-          for (const line of lines) {
+          for (const rawPart of parts) {
+            const line = rawPart.trim();
             if (line.startsWith("data: ")) {
               try {
-                const parsed = JSON.parse(line.replace("data: ", ""));
+                const parsed = JSON.parse(line.slice(6));
                 if (parsed.text) {
                   fullText += parsed.text;
                   const currentText = fullText;
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === modelMsgId ? { ...msg, content: currentText } : msg
-                    )
+                  setSessions((prev) =>
+                    prev.map((s) => {
+                      if (s.id === currentSessionId) {
+                        return {
+                          ...s,
+                          messages: s.messages.map((msg) =>
+                            msg.id === modelMsgId ? { ...msg, content: currentText } : msg
+                          ),
+                          updatedAt: Date.now(),
+                        };
+                      }
+                      return s;
+                    })
                   );
                 }
                 if (parsed.error && !fullText.trim()) {
                   fullText = parsed.error;
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === modelMsgId ? { ...msg, content: parsed.error } : msg
-                    )
+                  setSessions((prev) =>
+                    prev.map((s) => {
+                      if (s.id === currentSessionId) {
+                        return {
+                          ...s,
+                          messages: s.messages.map((msg) =>
+                            msg.id === modelMsgId ? { ...msg, content: parsed.error } : msg
+                          ),
+                          updatedAt: Date.now(),
+                        };
+                      }
+                      return s;
+                    })
                   );
                 }
                 if (parsed.sources) {
@@ -355,11 +561,30 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
           }
         }
 
+        // Process any remaining item in buffer if it's valid data
+        if (buffer.trim().startsWith("data: ")) {
+          try {
+            const parsed = JSON.parse(buffer.trim().slice(6));
+            if (parsed.text) fullText += parsed.text;
+          } catch (e) {
+            // Ignore
+          }
+        }
+
         if (fullText.trim()) {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === modelMsgId ? { ...msg, content: fullText, sources } : msg
-            )
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id === currentSessionId) {
+                return {
+                  ...s,
+                  messages: s.messages.map((msg) =>
+                    msg.id === modelMsgId ? { ...msg, content: fullText, sources } : msg
+                  ),
+                  updatedAt: Date.now(),
+                };
+              }
+              return s;
+            })
           );
 
           if (settings.autoReadResponse) {
@@ -376,9 +601,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg.content,
-          history: messages.map(m => ({ role: m.role, content: m.content })),
+          history: currentSession.messages.map(m => ({ role: m.role, content: m.content })),
           memory: settings.memoryEnabled,
           language: settings.language,
+          persona: settings.aiPersona || "nexus_prime",
           mode: chatMode,
           image: imgForPayload,
         }),
@@ -387,12 +613,19 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
       const data = await fallbackRes.json();
       const replyText = data.success ? data.reply : (data.fallbackReply || "HK Nexus AI is ready to assist you!");
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === modelMsgId
-            ? { ...msg, content: replyText, sources: data.groundingChunks }
-            : msg
-        )
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === currentSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map((msg) =>
+                msg.id === modelMsgId ? { ...msg, content: replyText, sources: data.groundingChunks } : msg
+              ),
+              updatedAt: Date.now(),
+            };
+          }
+          return s;
+        })
       );
 
       if (settings.autoReadResponse) {
@@ -400,15 +633,24 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
       }
     } catch (err) {
       console.error(err);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === modelMsgId
-            ? {
-                ...msg,
-                content: "नमस्ते! नेटवर्क कनेक्टेड है। HK Nexus AI (Hariom Kushwaha) आपकी सेवा के लिए तत्पर है!",
-              }
-            : msg
-        )
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === currentSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map((msg) =>
+                msg.id === modelMsgId
+                  ? {
+                      ...msg,
+                      content: "नमस्ते! नेटवर्क कनेक्टेड है। HK Nexus AI (Hariom Kushwaha) आपकी सेवा के लिए तत्पर है!",
+                    }
+                  : msg
+              ),
+              updatedAt: Date.now(),
+            };
+          }
+          return s;
+        })
       );
     } finally {
       setIsLoading(false);
@@ -420,143 +662,167 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4.5rem)] max-w-5xl mx-auto px-2 sm:px-4 py-2">
-      {/* Top Simple Header & Mode Selector */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 shadow-sm mb-2">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-xs font-bold text-white flex items-center gap-1">
-              <span>HK Nexus AI</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                • Hariom Kushwaha Edition
-              </span>
-            </h2>
-          </div>
-        </div>
+    <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-slate-950 relative">
+      {/* Gemini-Style Sidebar */}
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onSelectSession={(id) => setActiveSessionId(id)}
+        onNewChat={handleNewChat}
+        onDeleteSession={handleDeleteSession}
+        onClearAllSessions={handleClearAllSessions}
+        onExportCurrentChat={messages.length > 0 ? exportChatAsTxt : undefined}
+      />
 
-        {/* Simple Mode Buttons */}
-        <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-          {[
-            { id: "general", label: "💬 Chat" },
-            { id: "coding", label: "⚡ Code" },
-            { id: "math", label: "🧮 Math" },
-            { id: "language", label: "🌐 Language" },
-          ].map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setChatMode(mode.id as any)}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
-                chatMode === mode.id
-                  ? "bg-cyan-600 text-white font-semibold"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col h-full min-w-0 max-w-4xl mx-auto px-2 sm:px-4 py-2">
+
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-950/40 rounded-xl border border-slate-800/60 shadow-inner">
-        {messages.map((msg) => {
-          const isUser = msg.role === "user";
-          return (
-            <div
-              key={msg.id}
-              className={`flex items-start space-x-2.5 ${isUser ? "flex-row-reverse space-x-reverse" : "flex-row"}`}
-            >
-              {/* Avatar */}
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4 bg-transparent rounded-2xl flex flex-col">
+        {messages.length === 0 ? (
+          /* Clean, Smart Empty State (ChatGPT / Gemini Style) */
+          <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 text-center my-auto max-w-xl mx-auto w-full space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 ring-1 ring-cyan-400/30">
+              <Sparkles className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
+                <span>नमस्ते! 🙏</span>
+                <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">HK Nexus AI</span>
+              </h2>
+              <p className="text-xs sm:text-sm text-cyan-300/90 mt-2 font-medium">
+                आपका स्वागत है! / How can I help you today?
+              </p>
+            </div>
+
+            {/* Smart Prompt Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left pt-2">
+              {[
+                { title: "💻 Code & Debug", desc: "React, Python या Node.js कोड लिखें" },
+                { title: "🧮 Math & Logic", desc: "गणित और तर्क के प्रश्न स्टेप-बाय-स्टेप हल करें" },
+                { title: "🎨 Image & Logo", desc: "3D लोगो या HD फोटो का प्रोम्प्ट बनाएं" },
+                { title: "💡 Smart Assistant", desc: "ईमेल, निबंध या बिजनेस आइडिया तैयार करें" },
+              ].map((chip, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSendMessage(chip.desc)}
+                  className="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800/90 hover:border-cyan-500/40 text-left transition-all group shadow-sm active:scale-98"
+                >
+                  <p className="text-xs font-semibold text-cyan-300 group-hover:text-cyan-200">{chip.title}</p>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">{chip.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isUser = msg.role === "user";
+            return (
               <div
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white font-bold shadow-sm text-xs ${
-                  isUser
-                    ? "bg-purple-600"
-                    : "bg-cyan-600 border border-cyan-400/30"
-                }`}
+                key={msg.id}
+                className={`flex items-start space-x-2.5 ${isUser ? "flex-row-reverse space-x-reverse" : "flex-row"}`}
               >
-                {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-              </div>
+                {/* Avatar */}
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white font-bold shadow-sm text-xs ${
+                    isUser
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600"
+                      : "bg-gradient-to-r from-cyan-600 to-blue-600 border border-cyan-400/30"
+                  }`}
+                >
+                  {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                </div>
 
-              {/* Message Bubble */}
-              <div
-                className={`max-w-[88%] sm:max-w-[80%] rounded-2xl p-3.5 shadow-sm text-xs sm:text-sm leading-relaxed ${
-                  isUser
-                    ? "bg-indigo-600/90 text-white rounded-tr-none"
-                    : "bg-slate-900 border border-slate-800 text-slate-100 rounded-tl-none"
-                }`}
-              >
-                {/* Image Attachment */}
-                {msg.image && (
-                  <div className="mb-2 overflow-hidden rounded-lg border border-slate-700 max-w-sm">
-                    <img src={msg.image} alt="Attachment" className="max-h-56 object-contain w-full bg-slate-950" />
-                  </div>
-                )}
-
-                {/* Formatted Content */}
-                <FormattedMessage content={msg.content} />
-
-                {/* Citations */}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
-                    <p className="font-semibold text-cyan-400 mb-1 flex items-center gap-1">
-                      <Globe className="w-3 h-3" /> Sources:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {msg.sources.map((src, idx) => (
-                        <a
-                          key={idx}
-                          href={src.uri}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] truncate max-w-[180px]"
-                        >
-                          {src.title || src.uri}
-                        </a>
-                      ))}
+                {/* Message Bubble */}
+                <div
+                  className={`max-w-[88%] sm:max-w-[82%] rounded-2xl p-3.5 sm:p-4 shadow-sm text-xs sm:text-sm leading-relaxed ${
+                    isUser
+                      ? "bg-indigo-600/90 text-white rounded-tr-none"
+                      : "bg-slate-900/90 border border-slate-800/90 text-slate-100 rounded-tl-none"
+                  }`}
+                >
+                  {/* Image Attachment */}
+                  {msg.image && (
+                    <div className="mb-2 overflow-hidden rounded-xl border border-slate-700 max-w-sm">
+                      <img src={msg.image} alt="Attachment" referrerPolicy="no-referrer" className="max-h-56 object-contain w-full bg-slate-950" />
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Footer Bar */}
-                <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400">
-                  <span>{msg.timestamp}</span>
+                  {/* Formatted Content */}
+                  <FormattedMessage content={msg.content} />
 
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => copyToClipboard(msg.content)}
-                      className="p-1 hover:text-cyan-400 transition-colors"
-                      title="Copy"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Citations */}
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+                      <p className="font-semibold text-cyan-400 mb-1 flex items-center gap-1">
+                        <Globe className="w-3 h-3" /> Sources:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {msg.sources.map((src, idx) => (
+                          <a
+                            key={idx}
+                            href={src.uri}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] truncate max-w-[180px]"
+                          >
+                            {src.title || src.uri}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                    {!isUser && (
+                  {/* Footer Bar */}
+                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400">
+                    <span>{msg.timestamp}</span>
+
+                    <div className="flex items-center space-x-1.5">
                       <button
-                        onClick={() => speakText(msg.id, msg.content)}
-                        className={`p-1 transition-colors ${speakingMsgId === msg.id ? "text-cyan-400 animate-pulse" : "hover:text-cyan-400"}`}
-                        title="Voice Readout"
+                        onClick={() => copyToClipboard(msg.content)}
+                        className="p-1 hover:text-cyan-400 transition-colors"
+                        title="Copy"
                       >
-                        {speakingMsgId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
-                    )}
+
+                      {!isUser && (
+                        <button
+                          onClick={() => speakText(msg.id, msg.content)}
+                          className={`p-1 transition-colors ${speakingMsgId === msg.id ? "text-cyan-400 animate-pulse" : "hover:text-cyan-400"}`}
+                          title="Voice Readout"
+                        >
+                          {speakingMsgId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => deleteSingleMessage(msg.id)}
+                        className="p-1 hover:text-red-400 transition-colors"
+                        title="Delete this message"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
 
         {isLoading && (
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-cyan-950 border border-cyan-800/50 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-800/50 flex items-center justify-center">
               <Bot className="w-4 h-4 text-cyan-400 animate-spin" />
             </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-cyan-300 flex items-center space-x-2">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-cyan-300 flex items-center space-x-2 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              <span>HK AI जवाब तैयार कर रहा है...</span>
+              <span>HK AI जवाब सोच रहा है...</span>
             </div>
           </div>
         )}
@@ -564,41 +830,22 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggestion Chips */}
-      <div className="flex items-center space-x-2 my-2 overflow-x-auto no-scrollbar py-0.5">
-        {[
-          "नमस्ते! अपने बारे में बताओ",
-          "Explain Quantum Computing in Hindi",
-          "Write a React component example",
-          "Solve: 2x + 5 = 15",
-          "ताज़ा स्पोर्ट्स न्यूज़ बताओ",
-        ].map((prompt, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleSendMessage(prompt)}
-            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-medium whitespace-nowrap transition-colors"
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
-
-      {/* Input Box */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 shadow-lg">
+      {/* Meta AI / Gemini AI Style Input Box */}
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-2.5 shadow-xl backdrop-blur-md mt-2">
         {selectedImage && (
-          <div className="relative inline-block mb-2">
-            <img src={selectedImage} alt="Preview" className="w-14 h-14 object-cover rounded-lg border border-cyan-500" />
+          <div className="relative inline-block mb-2 ml-1">
+            <img src={selectedImage} alt="Preview" className="w-14 h-14 object-cover rounded-xl border border-cyan-500 shadow-md" />
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-600 rounded-full text-white text-[10px]"
+              className="absolute -top-1.5 -right-1.5 p-1 bg-red-600 hover:bg-red-500 rounded-full text-white text-[10px] transition-colors shadow"
             >
               ✕
             </button>
           </div>
         )}
 
-        <div className="flex items-center space-x-1.5">
-          {/* File input */}
+        <div className="flex items-end space-x-2">
+          {/* Attachment button */}
           <input
             type="file"
             ref={fileInputRef}
@@ -608,18 +855,18 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-800 transition-colors"
+            className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-800 transition-colors shrink-0 mb-0.5"
             title="Attach Image"
           >
             <Paperclip className="w-4 h-4" />
           </button>
 
-          {/* Voice input */}
+          {/* Speech-to-text mic */}
           <button
             onClick={toggleListening}
-            className={`p-2 rounded-lg border transition-all ${
+            className={`p-2.5 rounded-xl border transition-all shrink-0 mb-0.5 ${
               isListening
-                ? "bg-red-600 text-white border-red-500 animate-pulse"
+                ? "bg-red-600 text-white border-red-500 animate-pulse shadow-md shadow-red-500/30"
                 : "bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border-slate-800"
             }`}
             title={isListening ? "Listening..." : "Speech-to-Text"}
@@ -627,35 +874,63 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ settings, setSetti
             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
 
-          {/* Text Input */}
-          <input
-            type="text"
+          {/* Auto-Expanding Textarea */}
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
             placeholder={isListening ? "बोलिए... Listening..." : "HK Nexus AI से कुछ भी पूछें..."}
-            className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+            className="flex-1 bg-slate-950 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 resize-none min-h-[42px] max-h-[180px] leading-relaxed custom-scrollbar"
           />
 
-          {/* Send */}
+          {/* Send Button */}
           <button
             onClick={() => handleSendMessage()}
             disabled={isLoading || (!inputMessage.trim() && !selectedImage)}
-            className="p-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium disabled:opacity-40 transition-all shadow-sm"
+            className="p-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-medium disabled:opacity-40 transition-all shadow-md shadow-cyan-500/20 shrink-0 mb-0.5"
           >
             <Send className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Footer Status */}
-        <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 px-1">
+        {/* Footer info */}
+        <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 px-2">
           <span className="flex items-center space-x-1">
             <ShieldCheck className="w-3 h-3 text-cyan-400" />
-            <span>HK Nexus AI</span>
+            <span>HK Nexus AI • Intelligent Assistant</span>
           </span>
-          <span>Online</span>
+          <div className="flex items-center space-x-3">
+            {messages.length > 0 && (
+              <>
+                <button
+                  onClick={exportChatAsTxt}
+                  className="hover:text-cyan-400 transition-colors flex items-center space-x-0.5"
+                  title="Export Chat (.txt)"
+                >
+                  <Download className="w-3 h-3 mr-0.5" />
+                  <span>Export</span>
+                </button>
+                <button
+                  onClick={handleClearHistory}
+                  className="hover:text-red-400 transition-colors flex items-center space-x-0.5"
+                  title="Clear Chat"
+                >
+                  <Trash2 className="w-3 h-3 mr-0.5" />
+                  <span>Clear</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

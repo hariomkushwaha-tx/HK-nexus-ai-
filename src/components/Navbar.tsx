@@ -9,7 +9,9 @@ import {
   BrainCircuit, 
   UserCheck, 
   Cpu,
-  SlidersHorizontal
+  SlidersHorizontal,
+  PanelLeft,
+  Plus
 } from "lucide-react";
 
 interface NavbarProps {
@@ -18,13 +20,19 @@ interface NavbarProps {
   settings: UserSettings;
   setSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
   onOpenSettings: () => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  onNewChat?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   settings,
-  onOpenSettings
+  onOpenSettings,
+  isSidebarOpen,
+  onToggleSidebar,
+  onNewChat
 }) => {
   const tabs = [
     { id: "chat" as ActiveTab, label: "AI Chat", icon: Bot },
@@ -40,16 +48,30 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          {/* Brand & Creator */}
-          <div 
-            className="flex items-center space-x-3 cursor-pointer group" 
-            onClick={() => setActiveTab("chat")}
-          >
-            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-400 group-hover:scale-105 transition-transform">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
+          {/* Brand & Sidebar Toggle */}
+          <div className="flex items-center space-x-2.5">
+            {activeTab === "chat" && onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                className={`p-2 rounded-xl transition-all border ${
+                  isSidebarOpen
+                    ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
+                    : "bg-slate-800 text-slate-300 hover:text-white border-slate-700"
+                }`}
+                title="Toggle History Sidebar"
+              >
+                <PanelLeft className="w-5 h-5" />
+              </button>
+            )}
+
+            <div 
+              className="flex items-center space-x-2 cursor-pointer group" 
+              onClick={() => setActiveTab("chat")}
+            >
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-400 group-hover:scale-105 transition-transform">
+                <Cpu className="w-5 h-5" />
+              </div>
+              <div className="flex items-center space-x-1.5">
                 <h1 className="text-base font-bold text-white tracking-wide">
                   HK Nexus AI
                 </h1>
@@ -57,9 +79,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   v3.6 Pro
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                by Hariom Kushwaha
-              </p>
             </div>
           </div>
 

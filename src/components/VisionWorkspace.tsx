@@ -151,6 +151,7 @@ export const VisionWorkspace: React.FC = () => {
                 <img
                   src={selectedImage}
                   alt="Vision target"
+                  referrerPolicy="no-referrer"
                   className="max-h-80 object-contain rounded-xl"
                 />
               </div>

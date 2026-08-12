@@ -69,6 +69,10 @@ export const CreatorHubWorkspace: React.FC = () => {
             </p>
 
             <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-slate-400">
+              <span className="px-3 py-1 rounded-xl bg-orange-950/80 text-orange-300 border border-orange-700/60 font-bold flex items-center gap-1.5 shadow-sm">
+                <span>🇮🇳</span>
+                <span>100% Made in India</span>
+              </span>
               <span className="px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-cyan-400" /> hkdeveloperh@gmail.com
               </span>
