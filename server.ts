@@ -16,8 +16,8 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Helper to get initialized Gemini client
-function getGenAIClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
+function getGenAIClient(customKey?: string) {
+  const apiKey = customKey || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn("GEMINI_API_KEY is missing in process.env");
   }
@@ -32,8 +32,8 @@ function getGenAIClient() {
 }
 
 // Helper to get Groq client
-function getGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY || process.env.GROQ_KEY;
+function getGroqClient(customKey?: string) {
+  const apiKey = customKey || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
   if (!apiKey) return null;
   return new Groq({ apiKey });
 }
@@ -125,23 +125,102 @@ Current Live Date & Time Context:
 function getFriendlyErrorMessage(err: any): string {
   const errStr = String(err?.message || err || "");
   if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("quota")) {
-    return "क्षमा करें! अभी API पर ट्रैफिक बहुत अधिक है। कृपया 5-10 सेकंड रुक कर फिर से प्रश्न पूछें। (API Quota Rate Limit)";
+    return "क्षमा करें! अभी AI सर्वर पर ट्रैफिक बहुत अधिक है। कृपया 5-10 सेकंड रुक कर फिर से प्रयास करें। (API Rate Limit)";
   }
-  return "नमस्ते! HK Nexus AI सेवा चालू है। कृपया अपना प्रश्न दोबारा पूछें।";
+  return "क्षमा करें, उत्तर तैयार करने में समस्या आई है। कृपया अपना प्रश्न पुनः पूछें।";
+}
+
+// Helper to fetch Google Translate HD audio for natural speech synthesis fallback
+async function fetchGoogleTranslateAudio(text: string, lang: string = "hi"): Promise<string | null> {
+  try {
+    const cleanChunk = text.slice(0, 250);
+    const targetLang = lang === "hi" || lang === "hinglish" ? "hi" : "en";
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanChunk)}&tl=${targetLang}&client=tw-ob`;
+    const audioRes = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      }
+    });
+    if (audioRes.ok) {
+      const buffer = await audioRes.arrayBuffer();
+      return Buffer.from(buffer).toString("base64");
+    }
+  } catch (err) {
+    console.warn("Google Translate TTS fallback notice:", err);
+  }
+  return null;
 }
 
 // 1. CHAT API
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, history = [], memory = true, language = "auto", persona = "nexus_prime", mode = "general", image = null } = req.body;
+    const {
+      message,
+      history = [],
+      memory = true,
+      language = "auto",
+      persona = "nexus_prime",
+      mode = "general",
+      image = null,
+      customGroqKey = null,
+      customGeminiKey = null,
+      preferredEngine = "auto",
+    } = req.body;
 
-    const ai = getGenAIClient();
     const sysInstruction = getDynamicSystemInstruction(persona, language);
-    
-    // Prepare contents
+
+    let modePrompt = "";
+    if (mode === "coding") {
+      modePrompt = "\nFocus on generating clean, high-performance, well-commented code with complete explanations and bug diagnosis.";
+    } else if (mode === "math") {
+      modePrompt = "\nBreak down math and logic problems into step-by-step formulas, derivations, and final verification.";
+    } else if (mode === "language") {
+      modePrompt = "\nAct as a friendly multilingual language tutor. Provide translations, grammar tips, and example sentences.";
+    }
+
+    const groqKey = customGroqKey || req.headers["x-groq-key"] || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
+    const geminiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY;
+
+    // If preferredEngine is groq or auto (and groqKey exists), try Groq Llama-3.3-70B first!
+    if ((preferredEngine === "groq" || preferredEngine === "auto") && groqKey) {
+      try {
+        const groq = new Groq({ apiKey: String(groqKey).trim() });
+        const groqMessages: any[] = [{ role: "system", content: sysInstruction }];
+        if (memory && Array.isArray(history)) {
+          for (const m of history.slice(-8)) {
+            groqMessages.push({
+              role: m.role === "user" ? "user" : "assistant",
+              content: m.content,
+            });
+          }
+        }
+        groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
+
+        const groqRes = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: groqMessages,
+          temperature: 0.7,
+        });
+
+        const groqReply = groqRes.choices[0]?.message?.content || "";
+        if (groqReply) {
+          return res.json({
+            success: true,
+            reply: groqReply,
+            groundingChunks: [],
+            provider: "Groq (Llama-3.3 70B High Speed)",
+            creator: "Hariom Kushwaha (HK Tech World)",
+          });
+        }
+      } catch (groqErr: any) {
+        console.warn("Groq execution failed, trying Gemini:", groqErr?.message);
+      }
+    }
+
+    // Try Gemini
+    const ai = getGenAIClient(geminiKey as string);
     const contents: any[] = [];
 
-    // Add previous context if memory enabled
     if (memory && Array.isArray(history)) {
       for (const msg of history.slice(-8)) {
         contents.push({
@@ -163,15 +242,6 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    let modePrompt = "";
-    if (mode === "coding") {
-      modePrompt = "\nFocus on generating clean, high-performance, well-commented code with complete explanations and bug diagnosis.";
-    } else if (mode === "math") {
-      modePrompt = "\nBreak down math and logic problems into step-by-step formulas, derivations, and final verification.";
-    } else if (mode === "language") {
-      modePrompt = "\nAct as a friendly multilingual language tutor. Provide translations, grammar tips, and example sentences.";
-    }
-
     currentParts.push({ text: `${message}${modePrompt}` });
     contents.push({ role: "user", parts: currentParts });
 
@@ -189,48 +259,40 @@ app.post("/api/chat", async (req, res) => {
         },
       });
     } catch (apiErr: any) {
-      console.warn("Primary AI call failed, checking fallbacks:", apiErr?.message);
-      
-      // Try Groq fallback if GROQ_API_KEY is configured
-      const groq = getGroqClient();
-      if (groq) {
-        try {
-          console.log("Using Groq fallback API...");
-          const groqMessages: any[] = [
-            { role: "system", content: sysInstruction }
-          ];
-          if (memory && Array.isArray(history)) {
-            for (const m of history.slice(-6)) {
-              groqMessages.push({
-                role: m.role === "user" ? "user" : "assistant",
-                content: m.content,
-              });
-            }
-          }
-          groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
+      console.warn("Gemini call failed, trying Groq fallback:", apiErr?.message);
 
-          const groqRes = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            messages: groqMessages,
-            temperature: 0.7,
-          });
-
-          const groqReply = groqRes.choices[0]?.message?.content || "";
-          if (groqReply) {
-            return res.json({
-              success: true,
-              reply: groqReply,
-              groundingChunks: [],
-              provider: "Groq (High-Speed Engine)",
-              creator: "Hariom Kushwaha (HK Tech World)",
+      if (groqKey) {
+        const groq = new Groq({ apiKey: String(groqKey).trim() });
+        const groqMessages: any[] = [{ role: "system", content: sysInstruction }];
+        if (memory && Array.isArray(history)) {
+          for (const m of history.slice(-6)) {
+            groqMessages.push({
+              role: m.role === "user" ? "user" : "assistant",
+              content: m.content,
             });
           }
-        } catch (groqErr: any) {
-          console.error("Groq fallback error:", groqErr?.message);
+        }
+        groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
+
+        const groqRes = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: groqMessages,
+          temperature: 0.7,
+        });
+
+        const groqReply = groqRes.choices[0]?.message?.content || "";
+        if (groqReply) {
+          return res.json({
+            success: true,
+            reply: groqReply,
+            groundingChunks: [],
+            provider: "Groq (High-Speed Engine)",
+            creator: "Hariom Kushwaha (HK Tech World)",
+          });
         }
       }
 
-      // If Groq not present or failed, try plain Gemini 3.6 Flash without search
+      // If Groq also not present, try plain Gemini 3.6 Flash without tools
       response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
         contents,
@@ -241,9 +303,7 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    const reply = response.text || "HK Nexus AI is unable to process this request right now. Please try again.";
-    
-    // Extract grounding chunks if search tool was used
+    const reply = response.text || "HK Nexus AI is ready to assist you!";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
       title: chunk.web?.title || "Reference",
       uri: chunk.web?.uri || "#",
@@ -524,8 +584,13 @@ app.post("/api/image/generate", async (req, res) => {
 // 4. LIVE WEB SEARCH & NEWS API
 app.post("/api/web-search", async (req, res) => {
   try {
-    const { query, category = "all" } = req.body;
-    const ai = getGenAIClient();
+    const { query, category = "all", customGroqKey = null, customGeminiKey = null } = req.body;
+    if (!query || typeof query !== "string") {
+      return res.status(400).json({ success: false, error: "Search query is required" });
+    }
+
+    const groqKey = customGroqKey || req.headers["x-groq-key"] || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
+    const geminiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY;
 
     const categoryPrompt = category === "news" 
       ? `Provide the latest breaking news and live updates regarding: ${query}`
@@ -537,30 +602,118 @@ app.post("/api/web-search", async (req, res) => {
       ? `Provide live sports scores, match updates, and standings for: ${query}`
       : query;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: categoryPrompt,
-      config: {
-        systemInstruction: `${SYSTEM_INSTRUCTION_BASE}\nProvide current, factual, and well-structured information with bullet points.`,
-        tools: [{ googleSearch: {} }],
-      },
-    });
+    // 1. Try Gemini with Google Search Grounding
+    if (geminiKey) {
+      try {
+        const ai = getGenAIClient(geminiKey as string);
+        const response = await ai.models.generateContent({
+          model: "gemini-3.6-flash",
+          contents: categoryPrompt,
+          config: {
+            systemInstruction: `${SYSTEM_INSTRUCTION_BASE}\nProvide current, factual, and well-structured live web intelligence in clean markdown.`,
+            tools: [{ googleSearch: {} }],
+          },
+        });
 
-    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => ({
-      title: c.web?.title || "Source",
-      url: c.web?.uri || "#",
-    })) || [];
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => ({
+          title: c.web?.title || "Google Verified Source",
+          url: c.web?.uri || "#",
+        })) || [];
 
-    res.json({
+        if (response.text) {
+          return res.json({
+            success: true,
+            answer: response.text,
+            sources,
+            query,
+            provider: "Google Live Grounded Search",
+            timestamp: new Date().toLocaleTimeString("hi-IN"),
+            creator: "Hariom Kushwaha (HK Tech World)",
+          });
+        }
+      } catch (geminiSearchErr: any) {
+        console.warn("Gemini Google Search failed, using web scraper fallback:", geminiSearchErr?.message);
+      }
+    }
+
+    // 2. Fetch live data from DuckDuckGo Instant Answer / Wikipedia Public API
+    let publicContext = "";
+    const publicSources: Array<{ title: string; url: string }> = [];
+
+    try {
+      const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+      const ddgRes = await fetch(ddgUrl, { headers: { "User-Agent": "HKNexusAI/1.0" } });
+      if (ddgRes.ok) {
+        const ddgData: any = await ddgRes.json();
+        if (ddgData.AbstractText) {
+          publicContext += `\nDirect Overview: ${ddgData.AbstractText}\nSource: ${ddgData.AbstractSource} (${ddgData.AbstractURL})`;
+          publicSources.push({ title: ddgData.AbstractSource || "DuckDuckGo Verified Source", url: ddgData.AbstractURL || "https://duckduckgo.com" });
+        }
+        if (Array.isArray(ddgData.RelatedTopics)) {
+          for (const topic of ddgData.RelatedTopics.slice(0, 4)) {
+            if (topic.Text && topic.FirstURL) {
+              publicContext += `\n- ${topic.Text}`;
+              publicSources.push({ title: topic.Text.slice(0, 60), url: topic.FirstURL });
+            }
+          }
+        }
+      }
+    } catch (ddgErr) {
+      console.warn("Public search fetch failed:", ddgErr);
+    }
+
+    // 3. Synthesize with Groq or Gemini Plain Model
+    if (groqKey) {
+      try {
+        const groq = new Groq({ apiKey: String(groqKey).trim() });
+        const promptWithContext = `You are HK Nexus AI Live Web Search Engine by Hariom Kushwaha.
+User search query: "${query}"
+Category: ${category}
+${publicContext ? `Live Verified Web Data:\n${publicContext}\n` : ""}
+
+Provide a rich, structured, comprehensive, and up-to-date answer in clean Markdown with headings, key points, and clear explanations in Hindi & English according to the query.`;
+
+        const groqRes = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: promptWithContext }],
+          temperature: 0.5,
+        });
+
+        const answer = groqRes.choices[0]?.message?.content;
+        if (answer) {
+          return res.json({
+            success: true,
+            answer,
+            sources: publicSources.length > 0 ? publicSources : [
+              { title: `${query} - Live Search`, url: `https://www.google.com/search?q=${encodeURIComponent(query)}` },
+              { title: `Wikipedia Research: ${query}`, url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}` },
+            ],
+            query,
+            provider: "Groq Llama-3.3 70B High Speed Search",
+            timestamp: new Date().toLocaleTimeString("hi-IN"),
+            creator: "Hariom Kushwaha (HK Tech World)",
+          });
+        }
+      } catch (groqSearchErr: any) {
+        console.warn("Groq web search fallback error:", groqSearchErr?.message);
+      }
+    }
+
+    // Default Fallback
+    return res.json({
       success: true,
-      answer: response.text,
-      sources,
+      answer: `### 🌐 लाइव वेब सर्च रिपोर्ट: **${query}**\n\n- **श्रेणी (Category):** ${category.toUpperCase()}\n- **स्थिति:** HK Nexus AI ने आपके अनुरोध को प्रोसेस किया है।\n\n${publicContext ? `**ताज़ा संदर्भ:**\n${publicContext}\n` : `Google और इंटरनेट पर "${query}" से संबंधित ताज़ा जानकारी उपलब्ध है।`}\n\n*टिप: ताज़ा रियल-टाइम लाइव गूगल सर्च के लिए Settings में Groq या Gemini API Key सक्रिय रखें।*`,
+      sources: [
+        { title: `Google Search: ${query}`, url: `https://www.google.com/search?q=${encodeURIComponent(query)}` },
+        { title: `Wikipedia: ${query}`, url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}` }
+      ],
       query,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleTimeString("hi-IN"),
       creator: "Hariom Kushwaha (HK Tech World)",
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error("Web Search error:", error);
+    res.status(500).json({ success: false, error: error.message || "Search failed" });
   }
 });
 
@@ -591,13 +744,18 @@ app.post("/api/speech/tts", async (req, res) => {
   try {
     const { text, voice, gender = "female" } = req.body;
     const selectedVoice = voice || (gender === "male" ? "Puck" : "Kore");
+    const cleanText = (text || "").replace(/[*_#`~\[\]()]/g, " ").trim().slice(0, 400);
+
+    if (!cleanText) {
+      return res.status(400).json({ success: false, error: "Text parameter is required" });
+    }
 
     const ai = getGenAIClient();
 
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: text }] }],
+        contents: [{ parts: [{ text: cleanText }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -632,13 +790,26 @@ app.post("/api/speech/tts", async (req, res) => {
       }
     } catch (ttsErr: any) {
       const errMsg = ttsErr?.message || String(ttsErr);
-      console.warn("Gemini TTS unavailable, falling back to browser TTS:", errMsg.slice(0, 150));
+      console.warn("Gemini TTS notice, switching to HD natural speech fallback:", errMsg.slice(0, 120));
+    }
+
+    // Try Google Translate HD natural human audio
+    const isHindi = /[\u0900-\u097F]/.test(cleanText);
+    const audioB64 = await fetchGoogleTranslateAudio(cleanText, isHindi ? "hi" : "en");
+    if (audioB64) {
+      return res.json({
+        success: true,
+        audioBase64: audioB64,
+        mimeType: "audio/mp3",
+        voice: "Natural Human Voice",
+        creator: "Hariom Kushwaha (HK Tech World)",
+      });
     }
 
     res.json({
       success: false,
       useBrowserTTS: true,
-      text,
+      text: cleanText,
       voice: selectedVoice,
     });
   } catch (error: any) {

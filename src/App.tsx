@@ -22,9 +22,29 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
+  const [initialSearchQuery, setInitialSearchQuery] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const newChatRef = React.useRef<(() => void) | null>(null);
+
+  // Check URL parameters on initial load (for Google Search / Deep Links)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab") as ActiveTab;
+      const queryParam = params.get("q");
+
+      if (tabParam && ["chat", "vision", "studio", "video", "search", "learning", "creator"].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+      if (queryParam) {
+        setInitialSearchQuery(queryParam);
+        if (!tabParam) setActiveTab("search");
+      }
+    } catch (e) {
+      console.warn("URL params parsing error:", e);
+    }
+  }, []);
 
   const [settings, setSettings] = useState<UserSettings>(() => {
     try {
@@ -49,7 +69,7 @@ export default function App() {
   }, [settings]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col">
+    <div className="min-h-[100dvh] h-[100dvh] bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col overflow-hidden">
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
@@ -81,7 +101,13 @@ export default function App() {
 
         {activeTab === "video" && <VideoStudioWorkspace />}
 
-        {activeTab === "search" && <SearchWorkspace />}
+        {activeTab === "search" && (
+          <SearchWorkspace
+            initialQuery={initialSearchQuery}
+            customGroqKey={settings.customGroqApiKey}
+            customGeminiKey={settings.customGeminiApiKey}
+          />
+        )}
 
         {activeTab === "learning" && <LearningWorkspace />}
 

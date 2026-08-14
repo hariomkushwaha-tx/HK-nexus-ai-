@@ -96,6 +96,40 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
   const messages = activeSession ? activeSession.messages : [];
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [showInAppBanner, setShowInAppBanner] = useState(() => {
+    try {
+      const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
+      const isInApp = /FBAN|FBAV|Instagram|GSA|Line|Snapchat|Twitter|LinkedIn/i.test(ua);
+      const dismissed = localStorage.getItem("hk_nexus_dismissed_inapp_banner");
+      return isInApp && !dismissed;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  // Network connection status listener
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Touch unlock for speech synthesis & web audio on mobile
+    const unlockAudio = () => {
+      if ("speechSynthesis" in window) {
+        try { window.speechSynthesis.getVoices(); } catch(e){}
+      }
+    };
+    window.addEventListener("touchstart", unlockAudio, { once: true, passive: true });
+    window.addEventListener("click", unlockAudio, { once: true, passive: true });
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const [inputMessage, setInputMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -300,6 +334,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       recognition.onerror = (err: any) => {
         console.error("Speech Recognition Error:", err);
         setIsListening(false);
+        const errCode = err?.error || "";
+        if (errCode === "not-allowed" || errCode === "service-not-allowed") {
+          alert("🎙️ माइक एक्सेस ब्लॉक है!\n\nमोबाइल ब्राउज़र या Chrome की सेटिंग्स (Site Settings) में जाकर Microphone की परमिशन Allow (अनुमति) करें।");
+        } else if (errCode === "network") {
+          alert("🌐 नेटवर्क एरर!\n\nवॉइस पहचान (Voice Speech) के लिए एक्टिव इंटरनेट कनेक्शन आवश्यक है।");
+        }
       };
 
       recognition.onend = () => {
@@ -321,29 +361,64 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       return;
     }
 
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    const voices = window.speechSynthesis.getVoices();
     const isHindi = /[\u0900-\u097F]/.test(cleanText);
 
-    // Filter for natural, high quality human voices
-    let selectedVoice = voices.find(v => 
-      isHindi 
-        ? (v.lang.includes("hi") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Neural")))
-        : (v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Neural") || v.name.includes("Online")))
-    );
+    const loadAndSpeak = () => {
+      const voices = window.speechSynthesis.getVoices();
+      
+      let selectedVoice = voices.find(v => 
+        isHindi 
+          ? (v.lang.includes("hi") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Neural")))
+          : (v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Neural") || v.name.includes("Online")))
+      );
 
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => isHindi ? v.lang.includes("hi") : v.lang.startsWith("en"));
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => isHindi ? v.lang.includes("hi") : v.lang.startsWith("en"));
+      }
+
+      if (selectedVoice) utterance.voice = selectedVoice;
+      utterance.rate = settings.voiceSpeed || 1.0;
+      utterance.pitch = settings.voiceGender === "female" ? 1.05 : 0.95;
+
+      utterance.onend = () => setSpeakingMsgId(null);
+      utterance.onerror = () => setSpeakingMsgId(null);
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length > 0) {
+      loadAndSpeak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = loadAndSpeak;
+      setTimeout(loadAndSpeak, 250);
     }
+  };
 
-    if (selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = settings.voiceSpeed || 1;
-    utterance.pitch = settings.voiceGender === "female" ? 1.0 : 0.95;
+  // Helper for dynamic offline/fallback answers
+  const getSmartFallbackAnswer = (query: string): string => {
+    const q = query.trim().toLowerCase();
+    const now = new Date();
+    const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-    utterance.onend = () => setSpeakingMsgId(null);
-    utterance.onerror = () => setSpeakingMsgId(null);
-
-    window.speechSynthesis.speak(utterance);
+    if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)/i.test(q)) {
+      return `नमस्ते! मैं HK Nexus AI हूँ, जिसे हरिओम कुशवाहा (HK Tech World) ने बनाया है।\n\nआज का दिन ${dateStr} है। मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
+    }
+    if (/और बताओ|कैसे हो|क्या हाल|how are you/i.test(q)) {
+      return `मैं बिल्कुल ठीक और आपकी सहायता के लिए तैयार हूँ! आप बताइए, आज क्या खास चल रहा है?`;
+    }
+    if (/आज क्या है|आज की तारीख|आज का दिन|today|date|time/i.test(q)) {
+      return `आज ${dateStr} है और समय लगभग ${timeStr} हो रहा है।`;
+    }
+    if (/who created you|किसने बनाया|owner|developer|hariom/i.test(q)) {
+      return `मुझे **हरिओम कुशवाहा (Hariom Kushwaha)** - HK Tech World द्वारा विकसित किया गया है।`;
+    }
+    return `नमस्ते! मैं HK Nexus AI हूँ। AI सर्वर अभी बिजी है। आपके प्रश्न "${query}" के लिए कृपया कुछ सेकंड रुक कर पुनः प्रयास करें।`;
   };
 
   // Handle Text-to-Speech (TTS) with Human-like AI Voice
@@ -367,7 +442,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
     setSpeakingMsgId(msgId);
-    const cleanText = text.replace(/[*_#`~\[\]()]/g, " ").trim().slice(0, 600);
+    const cleanText = text.replace(/[*_#`~\[\]()]/g, " ").trim().slice(0, 500);
 
     try {
       // 1. Try Gemini High-Quality Natural Human Voice via Server
@@ -395,8 +470,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           fallbackBrowserTTS(msgId, cleanText);
         };
 
-        await audio.play();
-        return;
+        try {
+          await audio.play();
+          return;
+        } catch (playErr) {
+          console.warn("Direct play failed, using fallback TTS:", playErr);
+          fallbackBrowserTTS(msgId, cleanText);
+          return;
+        }
       }
     } catch (e) {
       console.warn("Server AI TTS failed, using enhanced browser TTS:", e);
@@ -480,23 +561,39 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       })
     );
 
+    const customGroqKey = settings.customGroqApiKey || localStorage.getItem("hk_custom_groq_key") || "";
+    const customGeminiKey = settings.customGeminiApiKey || localStorage.getItem("hk_custom_gemini_key") || "";
+    const preferredEngine = settings.preferredEngine || "auto";
+
+    const commonPayload = {
+      message: userMsg.content,
+      history: currentSession.messages.map(m => ({ role: m.role, content: m.content })),
+      memory: settings.memoryEnabled,
+      language: settings.language,
+      persona: settings.aiPersona || "nexus_prime",
+      mode: chatMode,
+      image: imgForPayload,
+      customGroqKey: customGroqKey || undefined,
+      customGeminiKey: customGeminiKey || undefined,
+      preferredEngine,
+    };
+
+    const commonHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (customGroqKey) commonHeaders["x-groq-key"] = customGroqKey;
+    if (customGeminiKey) commonHeaders["x-gemini-key"] = customGeminiKey;
+
     try {
       // 1. Try Ultra-Fast Streaming Endpoint
       const response = await fetch("/api/chat/stream", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMsg.content,
-          history: currentSession.messages.map(m => ({ role: m.role, content: m.content })),
-          memory: settings.memoryEnabled,
-          language: settings.language,
-          persona: settings.aiPersona || "nexus_prime",
-          mode: chatMode,
-          image: imgForPayload,
-        }),
+        headers: commonHeaders,
+        body: JSON.stringify(commonPayload),
       });
 
-      if (response.ok && response.body) {
+      const contentType = response.headers.get("content-type") || "";
+      if (response.ok && response.body && !contentType.includes("text/html")) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let fullText = "";
@@ -598,20 +695,57 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       // 2. Fallback to Standard Endpoint if streaming produced empty or failed
       const fallbackRes = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMsg.content,
-          history: currentSession.messages.map(m => ({ role: m.role, content: m.content })),
-          memory: settings.memoryEnabled,
-          language: settings.language,
-          persona: settings.aiPersona || "nexus_prime",
-          mode: chatMode,
-          image: imgForPayload,
-        }),
+        headers: commonHeaders,
+        body: JSON.stringify(commonPayload),
       });
 
-      const data = await fallbackRes.json();
-      const replyText = data.success ? data.reply : (data.fallbackReply || "HK Nexus AI is ready to assist you!");
+      let replyText = "";
+      let groundingChunks: any[] = [];
+
+      const fallbackContentType = fallbackRes.headers.get("content-type") || "";
+      if (fallbackRes.ok && fallbackContentType.includes("application/json")) {
+        const data = await fallbackRes.json();
+        replyText = data.success ? data.reply : (data.fallbackReply || "");
+        groundingChunks = data.groundingChunks || [];
+      }
+
+      // 3. Direct Client-side Groq call if backend returned empty or failed and Groq Key is available
+      if (!replyText && customGroqKey) {
+        try {
+          const directGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${customGroqKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are HK Nexus AI, an ultra-intelligent, helpful, and insightful AI created by Hariom Kushwaha (HK Tech World). Answer directly, smartly, and accurately like ChatGPT in conversational ${settings.language === "hi" ? "Hindi" : "Hinglish/English"}. Never show capability menu lists unless asked.`,
+                },
+                ...currentSession.messages.slice(-8).map((m) => ({
+                  role: m.role === "user" ? "user" : "assistant",
+                  content: m.content,
+                })),
+                { role: "user", content: userMsg.content },
+              ],
+              temperature: 0.7,
+            }),
+          });
+          if (directGroq.ok) {
+            const groqJson = await directGroq.json();
+            replyText = groqJson.choices?.[0]?.message?.content || "";
+          }
+        } catch (clientGroqErr) {
+          console.warn("Direct client Groq failed:", clientGroqErr);
+        }
+      }
+
+      if (!replyText) {
+        replyText = getSmartFallbackAnswer(userMsg.content);
+      }
 
       setSessions((prev) =>
         prev.map((s) => {
@@ -619,7 +753,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             return {
               ...s,
               messages: s.messages.map((msg) =>
-                msg.id === modelMsgId ? { ...msg, content: replyText, sources: data.groundingChunks } : msg
+                msg.id === modelMsgId ? { ...msg, content: replyText, sources: groundingChunks } : msg
               ),
               updatedAt: Date.now(),
             };
@@ -632,7 +766,41 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         speakText(modelMsgId, replyText);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Chat request error:", err);
+
+      // Direct Client Groq attempt on network exception
+      let directReply = "";
+      if (customGroqKey) {
+        try {
+          const directGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${customGroqKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are HK Nexus AI, an ultra-intelligent AI assistant created by Hariom Kushwaha (HK Tech World). Answer directly and smartly like ChatGPT.`,
+                },
+                ...currentSession.messages.slice(-8).map((m) => ({
+                  role: m.role === "user" ? "user" : "assistant",
+                  content: m.content,
+                })),
+                { role: "user", content: userMsg.content },
+              ],
+            }),
+          });
+          if (directGroq.ok) {
+            const gData = await directGroq.json();
+            directReply = gData.choices?.[0]?.message?.content || "";
+          }
+        } catch (e) {}
+      }
+
+      const smartAnswer = directReply || getSmartFallbackAnswer(userMsg.content);
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id === currentSessionId) {
@@ -642,7 +810,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 msg.id === modelMsgId
                   ? {
                       ...msg,
-                      content: "नमस्ते! नेटवर्क कनेक्टेड है। HK Nexus AI (Hariom Kushwaha) आपकी सेवा के लिए तत्पर है!",
+                      content: smartAnswer,
                     }
                   : msg
               ),
@@ -662,7 +830,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-slate-950 relative">
+    <div className="flex h-[calc(100dvh-4rem)] sm:h-[calc(100vh-4rem)] w-full overflow-hidden bg-slate-950 relative">
       {/* Gemini-Style Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -678,6 +846,37 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 max-w-4xl mx-auto px-2 sm:px-4 py-2">
+
+        {/* Offline Warning Banner */}
+        {isOffline && (
+          <div className="mb-2 p-2.5 px-3.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-center justify-between shrink-0 animate-pulse">
+            <span className="flex items-center gap-2 font-medium">
+              <span>⚠️</span>
+              <span>इंटरनेट कनेक्शन कट गया है। कृपया नेटवर्क चालू करें।</span>
+            </span>
+          </div>
+        )}
+
+        {/* In-App Browser Guidance Banner */}
+        {showInAppBanner && (
+          <div className="mb-2 p-3 bg-indigo-950/90 border border-indigo-500/30 rounded-xl text-slate-200 text-xs flex items-center justify-between gap-2 shrink-0 shadow-lg">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span>
+                गूगल या इन-ऐप वेबव्यू में खोल रहे हैं? बेहतर वॉइस और स्पीड के लिए ऊपर <strong>3 डॉट्स (⋮)</strong> दबाकर <strong>'Open in Chrome'</strong> चुनें।
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setShowInAppBanner(false);
+                try { localStorage.setItem("hk_nexus_dismissed_inapp_banner", "true"); } catch(e){}
+              }}
+              className="px-2 py-1 bg-indigo-800/60 hover:bg-indigo-700 text-indigo-200 rounded-lg text-[11px] shrink-0 font-medium"
+            >
+              ठीक है
+            </button>
+          </div>
+        )}
 
 
       {/* Messages Area */}

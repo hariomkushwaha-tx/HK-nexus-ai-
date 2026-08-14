@@ -13,14 +13,21 @@ import {
   Clock
 } from "lucide-react";
 
-export const SearchWorkspace: React.FC = () => {
-  const [query, setQuery] = useState("");
+interface SearchWorkspaceProps {
+  initialQuery?: string;
+  customGroqKey?: string;
+  customGeminiKey?: string;
+}
+
+export const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({ initialQuery = "", customGroqKey, customGeminiKey }) => {
+  const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState<"all" | "news" | "crypto" | "weather" | "sports">("all");
   const [isLoading, setIsLoading] = useState(false);
   const [searchData, setSearchData] = useState<{
     answer?: string;
     sources?: Array<{ title: string; url: string }>;
     timestamp?: string;
+    provider?: string;
   } | null>(null);
 
   const quickTopics = [
@@ -37,11 +44,23 @@ export const SearchWorkspace: React.FC = () => {
 
     setIsLoading(true);
 
+    const groqKey = customGroqKey || localStorage.getItem("hk_custom_groq_key") || "";
+    const geminiKey = customGeminiKey || localStorage.getItem("hk_custom_gemini_key") || "";
+
     try {
       const response = await fetch("/api/web-search", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, category: cat }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(groqKey ? { "x-groq-key": groqKey } : {}),
+          ...(geminiKey ? { "x-gemini-key": geminiKey } : {}),
+        },
+        body: JSON.stringify({
+          query: q,
+          category: cat,
+          customGroqKey: groqKey || undefined,
+          customGeminiKey: geminiKey || undefined,
+        }),
       });
 
       const data = await response.json();
@@ -49,7 +68,8 @@ export const SearchWorkspace: React.FC = () => {
         setSearchData({
           answer: data.answer,
           sources: data.sources,
-          timestamp: new Date().toLocaleTimeString(),
+          provider: data.provider,
+          timestamp: data.timestamp || new Date().toLocaleTimeString(),
         });
       }
     } catch (err) {

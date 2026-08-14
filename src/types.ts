@@ -34,6 +34,9 @@ export interface UserSettings {
   voiceSpeed: number;
   autoReadResponse: boolean;
   aiPersona: "nexus_prime" | "hk_genius" | "friendly_tutor" | "code_architect";
+  customGroqApiKey?: string;
+  customGeminiApiKey?: string;
+  preferredEngine?: "auto" | "groq" | "gemini";
 }
 
 export interface GeneratedImageItem {
