@@ -100,7 +100,7 @@ export default async function handler(req: any, res: any) {
       try {
         const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-3.7-flash",
           contents: [{ role: "user", parts: [{ text: message }] }],
           config: { systemInstruction: sysInstruction, temperature: 0.7 },
         });

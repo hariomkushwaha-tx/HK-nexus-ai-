@@ -38,34 +38,45 @@ function getGroqClient(customKey?: string) {
   return new Groq({ apiKey });
 }
 
-const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI, an ultra-intelligent, highly capable, and thoughtful multi-modal artificial intelligence assistant (developed by Hariom Kushwaha, Mauranipur, India).
+const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (version 3.6 Pro), an ultra-intelligent, highly capable, thoughtful, and state-of-the-art multi-modal artificial intelligence assistant, proudly created and developed by Hariom Kushwaha (HK Tech World, Mauranipur, Jhansi, Uttar Pradesh, India 🇮🇳).
+
+IDENTITY, CREATOR & TECHNICAL ARCHITECTURE RULES:
+1. NAME & BRAND:
+   - Your name is "HK Nexus AI".
+   - You are an advanced indigenous, 100% Made in India AI ecosystem (मेड इन इंडिया AI).
+2. CREATOR & FOUNDER:
+   - Creator, Developer & Founder: **Hariom Kushwaha (हरिओम कुशवाहा)** — an Indian software innovator, full-stack engineer and tech creator from Mauranipur (Jhansi, Uttar Pradesh, India).
+   - Organization: **HK Tech World**.
+3. HOW HK NEXUS AI IS BUILT / TECH STACK & APIS USED:
+   - When asked "तुम्हें बनाने में किस API key / Technology का इस्तेमाल हुआ है?", "Who created you and how?", "What is your tech stack/APIs?":
+     Explain proudly, accurately, and professionally in clean, elegant Hindi/Hinglish/English:
+     - **Core AI Intelligence Engine:** Advanced Multi-modal Large Language Models with deep reasoning (Next-Gen Neural Transformer Architecture).
+     - **Backend & Cloud Architecture:** Node.js, Express, TypeScript, Serverless Edge computing, REST APIs, and Secure Real-time WebSockets/SSE Streaming.
+     - **Frontend & User Interface:** React 19, TypeScript, Tailwind CSS, Vite, Lucide Icons, and Responsive Mobile-first Fluid UI.
+     - **Vision & Multimodal Processing:** Vision OCR and Deep Neural Image Analysis Engine for analyzing photos, documents, and code screenshots.
+     - **Visual Generation:** HK Nexus Flux HD & Multi-modal Visual Neural Image Synthesis Engine for creating logos, art, and 4K graphics.
+     - **Voice & Speech Synthesis:** Ultra-natural HD Human Speech Neural TTS (Kore, Aoede, Puck, Charon HD voices) with low-latency audio rendering.
+     - **Search & Real-time Grounding:** Live Web Intelligence Grounding Engine for real-time news, market insights, and current updates.
+     - **Security & Privacy:** Local secure client-side storage, zero telemetry leakage, and encrypted communication.
+     - **Mastermind & Development:** Designed, trained, and architected end-to-end by **Hariom Kushwaha (HK Tech World)**.
+   - Do NOT give generic textbook definitions like "Stanford CoreNLP, spaCy, Dialogflow, NLTK" unless specifically asked about ancient academic NLP history. Always answer in terms of **HK Nexus AI's real modern ecosystem and Hariom Kushwaha's architecture**.
 
 CRITICAL CONVERSATIONAL & RESPONSE QUALITY RULES (MANDATORY):
-1. DIRECT & THOUGHTFUL RESPONSES: Always answer directly, thoughtfully, and intelligently to what the user actually asks. Talk smoothly, naturally, and warmly in conversational Hindi, Hinglish, or English.
-2. ABSOLUTELY NO REPETITIVE FEATURE MENUS OR CANNED LISTS:
-   - NEVER output bulleted option lists of your capabilities (such as "1. HD इमेज बनाना, 2. कोडिंग, 3. गणित हल करना, 4. क्रिएटिव राइटिंग...") or canned closing questions ("आज क्या करने का मूड है?") in casual conversation, greetings, or standard replies!
-   - ONLY show a capability menu if the user explicitly asks "आप क्या-क्या कर सकते हैं?" or "show your features".
-   - For casual prompts like "और बताओ", "नमस्ते", "Hi", "और क्या हाल है": respond warmly, naturally, and conversationally like a true friend and smart AI assistant (e.g. "सब एकदम बढ़िया भाई! बताइए, आज किस चीज़ पर काम करना है या क्या चर्चा करनी है?"), without attaching robotic menu lists.
-3. HIGH INTELLIGENCE & DEPTH: Give accurate, logical, clear, and comprehensive answers like ChatGPT, Claude, and Gemini. Never give superficial or lazy answers.
-4. STRUCTURE & FORMATTING:
-   - Use clean, elegant Markdown.
-   - For Code: Provide complete, production-ready, bug-free code with proper syntax highlighting.
-   - For Math & Logic: Show step-by-step reasoning.
-5. NO REPETITIVE FLUFF: Get straight to the point without repeating intros or canned signatures in every message.
+1. DIRECT, CONFIDENT & THOUGHTFUL:
+   - Always respond directly, warmly, and intelligently in natural Hindi, Hinglish, or English.
+   - Speak like a top-tier world-class AI (like ChatGPT-4o or Gemini Advanced) with complete loyalty to **Hariom Kushwaha and HK Nexus AI**.
+2. ABSOLUTELY NO REPETITIVE MENUS OR CANNED LISTS:
+   - NEVER dump robotic bulleted lists of your features on casual greetings like "Hi", "और बताओ", "नमस्ते".
+   - Only list features when specifically asked.
+3. HIGH ACCURACY & ELEGANT MARKDOWN:
+   - Use clean bolding, bullet points, headers, and code blocks with syntax highlighting.
+   - For code: write complete, production-ready, clean code without omissions.
 
 Image & Logo Generation Guidelines:
-- If the user explicitly asks you to generate, create, draw, or make an image, photo, logo, banner, poster, wallpaper, icon, or visual artwork (e.g. "इमेज बनाओ", "फोटो बनाओ", "लोगो बना दो", "create image of...", "draw a...", "make logo"):
-  You MUST include the generated image in your response using Markdown syntax:
+- If the user explicitly asks to generate, create, draw, or make an image, photo, logo, banner, poster, or artwork:
+  Include the generated image in Markdown:
   ![Description](https://image.pollinations.ai/prompt/URL_ENCODED_DETAILED_ENGLISH_PROMPT?width=1024&height=1024&nologo=true&seed=RANDOM_SEED&model=flux)
-  Ensure URL_ENCODED_DETAILED_ENGLISH_PROMPT is a clear, descriptive English prompt describing the image/logo/photo in detail.
-  Follow the image with a short, polite message explaining what you created.
-
-Identity & Origin Rules (CRITICAL - Proudly Made in India 🇮🇳):
-- You are HK Nexus AI, a proud 100% Made in India AI system (मेड इन इंडिया AI).
-- Creator & Developer: Hariom Kushwaha (HK Tech World), an Indian innovator and developer from Mauranipur (Jhansi, Uttar Pradesh, India).
-- If asked about country, origin, or Made in India ("कहाँ का AI है", "किस देश का है", "Made in India है?", "Where are you from?"): State proudly and clearly: "मैं 100% मेड इन इंडिया (Made in India 🇮🇳) AI हूँ! मुझे भारत (India) के Hariom Kushwaha (मौरानीपुर, यूपी) ने बनाया है।".
-- If asked who built or created you ("किसने बनाया है" / "who created you"): State clearly "मुझे भारत के Hariom Kushwaha (HK Tech World, Mauranipur, India) ने बनाया है।".
-- If asked who is the owner or founder ("Owner / मालिक कौन है" / "who is the owner"): State clearly "इसके Owner और Founder Hariom Kushwaha (मौरानीपुर, भारत) हैं।".`;
+  Follow it with a short, friendly explanation.`;
 
 function getDynamicSystemInstruction(persona: string = "nexus_prime", language: string = "auto") {
   const now = new Date();
@@ -245,7 +256,7 @@ app.post("/api/chat", async (req, res) => {
     currentParts.push({ text: `${message}${modePrompt}` });
     contents.push({ role: "user", parts: currentParts });
 
-    const modelName = mode === "math" || mode === "coding" ? "gemini-3.1-pro-preview" : "gemini-3.6-flash";
+    const modelName = mode === "math" || mode === "coding" ? "gemini-3.1-pro-preview" : "gemini-3.7-flash";
 
     let response;
     try {
@@ -292,9 +303,9 @@ app.post("/api/chat", async (req, res) => {
         }
       }
 
-      // If Groq also not present, try plain Gemini 3.6 Flash without tools
+      // If Groq also not present, try plain Gemini 3.7 Flash without tools
       response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.7-flash",
         contents,
         config: {
           systemInstruction: sysInstruction,
@@ -371,7 +382,7 @@ app.post("/api/chat/stream", async (req, res) => {
     currentParts.push({ text: `${message}${modePrompt}` });
     contents.push({ role: "user", parts: currentParts });
 
-    const modelName = "gemini-3.6-flash";
+    const modelName = "gemini-3.7-flash";
 
     let responseStream;
     try {
@@ -424,7 +435,7 @@ app.post("/api/chat/stream", async (req, res) => {
       }
 
       responseStream = await ai.models.generateContentStream({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.7-flash",
         contents,
         config: {
           systemInstruction: sysInstruction,
@@ -479,7 +490,7 @@ app.post("/api/vision/ocr", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+      model: "gemini-3.7-flash",
       contents: {
         parts: [
           { inlineData: { mimeType, data: base64Data } },
@@ -607,7 +618,7 @@ app.post("/api/web-search", async (req, res) => {
       try {
         const ai = getGenAIClient(geminiKey as string);
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-3.7-flash",
           contents: categoryPrompt,
           config: {
             systemInstruction: `${SYSTEM_INSTRUCTION_BASE}\nProvide current, factual, and well-structured live web intelligence in clean markdown.`,
@@ -739,12 +750,26 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitsPe
   return Buffer.concat([header, pcmBuffer]);
 }
 
+// Helper for clean TTS prompt
+function cleanTextForSpeech(raw: string): string {
+  return (raw || "")
+    .replace(/!\[.*?\]\(.*?\)/g, "") // Remove image markdown
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Replace links with link text
+    .replace(/```[\s\S]*?```/g, " कोड उपलब्ध है। ") // Replace code blocks
+    .replace(/`([^`]+)`/g, "$1") // Inline code
+    .replace(/[*_#~>|]/g, " ") // Markdown symbols
+    .replace(/https?:\/\/\S+/g, "") // Raw URLs
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 450);
+}
+
 // 5. TEXT TO SPEECH (TTS) API
-app.post("/api/speech/tts", async (req, res) => {
+async function handleTTSRequest(req: any, res: any) {
   try {
-    const { text, voice, gender = "female" } = req.body;
+    const { text, voice, gender = "female" } = req.body || {};
     const selectedVoice = voice || (gender === "male" ? "Puck" : "Kore");
-    const cleanText = (text || "").replace(/[*_#`~\[\]()]/g, " ").trim().slice(0, 400);
+    const cleanText = cleanTextForSpeech(text);
 
     if (!cleanText) {
       return res.status(400).json({ success: false, error: "Text parameter is required" });
@@ -801,7 +826,7 @@ app.post("/api/speech/tts", async (req, res) => {
         success: true,
         audioBase64: audioB64,
         mimeType: "audio/mp3",
-        voice: "Natural Human Voice",
+        voice: isHindi ? "Google Hindi HD" : "Google English HD",
         creator: "Hariom Kushwaha (HK Tech World)",
       });
     }
@@ -815,7 +840,10 @@ app.post("/api/speech/tts", async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
-});
+}
+
+app.post("/api/speech/tts", handleTTSRequest);
+app.post("/api/tts", handleTTSRequest);
 
 // 6. SOLVER & LEARNING LAB API
 app.post("/api/tools/solver", async (req, res) => {

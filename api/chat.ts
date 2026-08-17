@@ -1,3 +1,4 @@
+// API version identifier: HK Nexus v3.6.2 (Hariom Kushwaha Edition)
 import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 
@@ -45,24 +46,27 @@ export default async function handler(req: any, res: any) {
     const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-    const sysInstruction = `You are HK Nexus AI, an ultra-intelligent, helpful, and polite AI assistant created by Hariom Kushwaha (HK Tech World, Mauranipur, India).
+    const sysInstruction = `You are HK Nexus AI (v3.6 Pro), an ultra-intelligent, advanced multi-modal AI assistant created by Hariom Kushwaha (HK Tech World, Mauranipur, Jhansi, UP, India 🇮🇳).
 - Today's Date in India: ${dateStr}
 - Current Time in India: ${timeStr}
-- Provide comprehensive, direct, smart, and insightful responses like ChatGPT and Gemini.
-- Do NOT output repetitive menus or robotic templates. Answer the user's specific query thoroughly.
-- Respond politely in ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
+- Always answer naturally, thoughtfully, and with deep intelligence like ChatGPT/Gemini Pro.
+- CREATOR & TECH IDENTITY: When asked who built you or how you are built/APIs used, explain that you are "HK Nexus AI", developed by **Hariom Kushwaha (HK Tech World, Mauranipur, India)** using modern multi-modal neural network architecture, Node.js, React, Vision AI, and intelligent real-time processing.
+- Never output outdated or textbook lists (like Stanford CoreNLP, Dialogflow). Speak proudly as the indigenous HK Nexus AI system.
+- Respond in natural ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
 
-    // 1. Try Groq First (Super-Fast & 100% Free)
+    // 1. Try Groq (Llama-3.3 70B - Lightning Fast)
     if (groqKey) {
       try {
         const groq = new Groq({ apiKey: String(groqKey).trim() });
         const messages: any[] = [{ role: "system", content: sysInstruction }];
         if (memory && Array.isArray(history)) {
           for (const m of history.slice(-8)) {
-            messages.push({
-              role: m.role === "user" ? "user" : "assistant",
-              content: m.content,
-            });
+            if (m.content) {
+              messages.push({
+                role: m.role === "user" ? "user" : "assistant",
+                content: m.content,
+              });
+            }
           }
         }
         messages.push({ role: "user", content: message });
@@ -74,20 +78,20 @@ export default async function handler(req: any, res: any) {
         });
 
         const reply = groqRes.choices[0]?.message?.content;
-        if (reply) {
+        if (reply && reply.trim()) {
           return res.status(200).json({
             success: true,
-            reply,
+            reply: reply.trim(),
             provider: "Groq (Llama-3.3 70B)",
             creator: "Hariom Kushwaha (HK Tech World)",
           });
         }
       } catch (groqErr: any) {
-        console.warn("Vercel Serverless Groq Error:", groqErr?.message);
+        console.warn("Groq execution failed:", groqErr?.message);
       }
     }
 
-    // 2. Try Gemini
+    // 2. Try Gemini (Gemini 2.5/Flash)
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
@@ -95,10 +99,12 @@ export default async function handler(req: any, res: any) {
 
         if (memory && Array.isArray(history)) {
           for (const msg of history.slice(-8)) {
-            contents.push({
-              role: msg.role === "user" ? "user" : "model",
-              parts: [{ text: msg.content }],
-            });
+            if (msg.content) {
+              contents.push({
+                role: msg.role === "user" ? "user" : "model",
+                parts: [{ text: msg.content }],
+              });
+            }
           }
         }
 
@@ -114,7 +120,7 @@ export default async function handler(req: any, res: any) {
         contents.push({ role: "user", parts: currentParts });
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-3.7-flash",
           contents,
           config: {
             systemInstruction: sysInstruction,
@@ -122,26 +128,40 @@ export default async function handler(req: any, res: any) {
           },
         });
 
-        const reply = response.text || "नमस्ते! मैं आपकी किस प्रकार सहायता कर सकता हूँ?";
-        return res.status(200).json({
-          success: true,
-          reply,
-          provider: "Gemini 3.6 Flash",
-          creator: "Hariom Kushwaha (HK Tech World)",
-        });
+        const reply = response.text;
+        if (reply && reply.trim()) {
+          return res.status(200).json({
+            success: true,
+            reply: reply.trim(),
+            provider: "Gemini AI",
+            creator: "Hariom Kushwaha (HK Tech World)",
+          });
+        }
       } catch (geminiErr: any) {
-        console.warn("Vercel Serverless Gemini Error:", geminiErr?.message);
+        console.warn("Gemini execution failed:", geminiErr?.message);
       }
     }
 
-    // If API keys fail or not present on Vercel
+    // Dynamic intelligent contextual answer
+    let dynamicAnswer = "";
+    const lower = message.trim().toLowerCase();
+    if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)/i.test(lower)) {
+      dynamicAnswer = `Hello! मैं HK Nexus AI हूँ। सब कुछ एकदम बढ़िया है भाई! बताइए, आज किस टॉपिक पर काम करना है या क्या चर्चा करनी है?`;
+    } else if (/और बताओ|और क्या|कैसे हो|क्या हाल|how are you/i.test(lower)) {
+      dynamicAnswer = `मैं एकदम मस्त हूँ! आप बताइए, आपका दिन कैसा बीत रहा है? कोडिंग, पढ़ाई या किसी नए प्रोजेक्ट पर काम शुरू करना है?`;
+    } else if (/who created you|किसने बनाया|owner|developer|hariom/i.test(lower)) {
+      dynamicAnswer = `मुझे **हरिओम कुशवाहा (Hariom Kushwaha)** - HK Tech World, मौरानीपुर द्वारा विकसित किया गया है।`;
+    } else {
+      dynamicAnswer = `नमस्ते! मैं HK Nexus AI हूँ। आपके प्रश्न "${message}" के लिए बताइए मैं कैसे विस्तार से सहायता करूँ?`;
+    }
+
     return res.status(200).json({
       success: true,
-      reply: `नमस्ते! मैं HK Nexus AI हूँ, जिसे हरिओम कुशवाहा (HK Tech World) ने बनाया है।\n\nआज का दिन ${dateStr} है और समय ${timeStr} हो रहा है।\n\nआप मुझसे पढ़ाई, कोडिंग, सवाल-जवाब या किसी भी विषय पर बात कर सकते हैं। आप क्या जानना चाहते हैं?`,
+      reply: dynamicAnswer,
       creator: "Hariom Kushwaha (HK Tech World)",
     });
   } catch (error: any) {
-    console.error("Vercel Serverless Function Error:", error);
+    console.error("Handler error:", error);
     return res.status(500).json({
       success: false,
       error: error.message || "Internal server error",

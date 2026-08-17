@@ -24,7 +24,11 @@ import {
   Paperclip,
   Plus,
   Settings,
-  Download
+  Download,
+  ThumbsUp,
+  ThumbsDown,
+  Edit3,
+  Check
 } from "lucide-react";
 
 interface ChatWorkspaceProps {
@@ -136,6 +140,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<"general" | "coding" | "math" | "language">("general");
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, "up" | "down">>({});
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -299,17 +307,35 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Handle Speech Recognition (Speech-to-Text)
+  // Clean Markdown & Code for smooth realistic Speech
+  const prepareSpeechText = (raw: string): string => {
+    return (raw || "")
+      .replace(/!\[.*?\]\(.*?\)/g, "") // Remove image markdown
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Extract link text
+      .replace(/```[\s\S]*?```/g, " कोड यहाँ दिया गया है। ") // Replace code blocks
+      .replace(/`([^`]+)`/g, "$1") // Inline code
+      .replace(/[*_#~>|]/g, " ") // Markdown symbols
+      .replace(/https?:\/\/\S+/g, "") // URLs
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 600);
+  };
+
+  // Handle Speech Recognition (Speech-to-Text / Mic Input)
   const toggleListening = () => {
     if (isListening) {
-      if (recognitionRef.current) recognitionRef.current.stop();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
       setIsListening(false);
       return;
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("आपका ब्राउज़र Voice Speech Recognition सपोर्ट नहीं करता है। कृपया Chrome या modern browser का प्रयोग करें।");
+      alert("🎙️ आपका ब्राउज़र Voice Speech Recognition सपोर्ट नहीं करता है। कृपया Google Chrome ब्राउज़र का प्रयोग करें।");
       return;
     }
 
@@ -317,28 +343,52 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = settings.language === "hi" ? "hi-IN" : "en-US";
+      
+      // Default to Hindi (hi-IN) for Indian languages & Auto-detect, or English (en-IN/en-US)
+      if (settings.language === "en") {
+        recognition.lang = "en-IN";
+      } else if (settings.language === "es") {
+        recognition.lang = "es-ES";
+      } else if (settings.language === "fr") {
+        recognition.lang = "fr-FR";
+      } else {
+        // Auto / Hindi / Hinglish
+        recognition.lang = "hi-IN";
+      }
+
+      const initialText = inputMessage.trim();
 
       recognition.onstart = () => {
         setIsListening(true);
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((result: any) => result[0])
-          .map((result: any) => result.transcript)
-          .join("");
-        setInputMessage(transcript);
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const trans = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += trans;
+          } else {
+            interimTranscript += trans;
+          }
+        }
+
+        const spoken = (finalTranscript || interimTranscript).trim();
+        if (spoken) {
+          setInputMessage(initialText ? `${initialText} ${spoken}` : spoken);
+        }
       };
 
       recognition.onerror = (err: any) => {
-        console.error("Speech Recognition Error:", err);
+        console.warn("Speech Recognition notice:", err?.error || err);
         setIsListening(false);
         const errCode = err?.error || "";
         if (errCode === "not-allowed" || errCode === "service-not-allowed") {
-          alert("🎙️ माइक एक्सेस ब्लॉक है!\n\nमोबाइल ब्राउज़र या Chrome की सेटिंग्स (Site Settings) में जाकर Microphone की परमिशन Allow (अनुमति) करें।");
+          alert("🎙️ माइक की अनुमति (Microphone Permission) ब्लॉक है!\n\nकृपया ब्राउज़र की सेटिंग्स में जाकर Microphone को Allow (अनुमति) करें।");
         } else if (errCode === "network") {
-          alert("🌐 नेटवर्क एरर!\n\nवॉइस पहचान (Voice Speech) के लिए एक्टिव इंटरनेट कनेक्शन आवश्यक है।");
+          console.warn("Speech network error, using keyboard fallback");
         }
       };
 
@@ -349,52 +399,71 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       recognitionRef.current = recognition;
       recognition.start();
     } catch (e) {
-      console.error(e);
+      console.error("Speech Recognition start error:", e);
       setIsListening(false);
     }
   };
 
   // Fallback to browser Web Speech API with natural voice selection
-  const fallbackBrowserTTS = (msgId: string, cleanText: string) => {
+  const fallbackBrowserTTS = (msgId: string, rawText: string) => {
     if (!("speechSynthesis" in window)) {
       setSpeakingMsgId(null);
       return;
     }
 
-    window.speechSynthesis.cancel();
+    const cleanText = prepareSpeechText(rawText);
+    if (!cleanText) {
+      setSpeakingMsgId(null);
+      return;
+    }
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    const isHindi = /[\u0900-\u097F]/.test(cleanText);
+    try {
+      window.speechSynthesis.cancel();
 
-    const loadAndSpeak = () => {
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      const isHindi = /[\u0900-\u097F]/.test(cleanText);
+
+      const loadAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices() || [];
+        
+        let selectedVoice = voices.find((v) => 
+          isHindi 
+            ? (v.lang.includes("hi") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Neural") || v.name.includes("Online")))
+            : (v.lang.includes("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Neural") || v.name.includes("Online")))
+        );
+
+        if (!selectedVoice) {
+          selectedVoice = voices.find((v) => isHindi ? (v.lang.includes("hi") || v.lang.includes("IN")) : (v.lang.startsWith("en") || v.lang.includes("US")));
+        }
+
+        if (!selectedVoice && voices.length > 0) {
+          selectedVoice = voices[0];
+        }
+
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+
+        utterance.lang = isHindi ? "hi-IN" : "en-US";
+        utterance.rate = settings.voiceSpeed || 1.0;
+        utterance.pitch = settings.voiceGender === "female" ? 1.05 : 0.95;
+
+        utterance.onend = () => setSpeakingMsgId(null);
+        utterance.onerror = () => setSpeakingMsgId(null);
+
+        window.speechSynthesis.speak(utterance);
+      };
+
       const voices = window.speechSynthesis.getVoices();
-      
-      let selectedVoice = voices.find(v => 
-        isHindi 
-          ? (v.lang.includes("hi") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Neural")))
-          : (v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Neural") || v.name.includes("Online")))
-      );
-
-      if (!selectedVoice) {
-        selectedVoice = voices.find(v => isHindi ? v.lang.includes("hi") : v.lang.startsWith("en"));
+      if (voices && voices.length > 0) {
+        loadAndSpeak();
+      } else {
+        window.speechSynthesis.onvoiceschanged = loadAndSpeak;
+        setTimeout(loadAndSpeak, 150);
       }
-
-      if (selectedVoice) utterance.voice = selectedVoice;
-      utterance.rate = settings.voiceSpeed || 1.0;
-      utterance.pitch = settings.voiceGender === "female" ? 1.05 : 0.95;
-
-      utterance.onend = () => setSpeakingMsgId(null);
-      utterance.onerror = () => setSpeakingMsgId(null);
-
-      window.speechSynthesis.speak(utterance);
-    };
-
-    const voices = window.speechSynthesis.getVoices();
-    if (voices && voices.length > 0) {
-      loadAndSpeak();
-    } else {
-      window.speechSynthesis.onvoiceschanged = loadAndSpeak;
-      setTimeout(loadAndSpeak, 250);
+    } catch (err) {
+      console.warn("Fallback TTS error:", err);
+      setSpeakingMsgId(null);
     }
   };
 
@@ -407,18 +476,18 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
     if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)/i.test(q)) {
-      return `नमस्ते! मैं HK Nexus AI हूँ, जिसे हरिओम कुशवाहा (HK Tech World) ने बनाया है।\n\nआज का दिन ${dateStr} है। मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
+      return `Hello! मैं HK Nexus AI हूँ। सब कुछ एकदम बढ़िया है भाई! बताइए, आज किस विषय पर काम करना है?`;
     }
-    if (/और बताओ|कैसे हो|क्या हाल|how are you/i.test(q)) {
-      return `मैं बिल्कुल ठीक और आपकी सहायता के लिए तैयार हूँ! आप बताइए, आज क्या खास चल रहा है?`;
+    if (/और बताओ|और क्या|कैसे हो|क्या हाल|how are you/i.test(q)) {
+      return `मैं बिल्कुल मस्त और आपकी सहायता के लिए तैयार हूँ! आप बताइए, आपका क्या हाल-चाल है?`;
     }
     if (/आज क्या है|आज की तारीख|आज का दिन|today|date|time/i.test(q)) {
       return `आज ${dateStr} है और समय लगभग ${timeStr} हो रहा है।`;
     }
     if (/who created you|किसने बनाया|owner|developer|hariom/i.test(q)) {
-      return `मुझे **हरिओम कुशवाहा (Hariom Kushwaha)** - HK Tech World द्वारा विकसित किया गया है।`;
+      return `मुझे **हरिओम कुशवाहा (Hariom Kushwaha)** - HK Tech World, मौरानीपुर द्वारा विकसित किया गया है।`;
     }
-    return `नमस्ते! मैं HK Nexus AI हूँ। AI सर्वर अभी बिजी है। आपके प्रश्न "${query}" के लिए कृपया कुछ सेकंड रुक कर पुनः प्रयास करें।`;
+    return `नमस्ते! आपके प्रश्न "${query}" पर मैं तैयार हूँ। बताइए इसमें क्या खास समाधान या कोड चाहिए?`;
   };
 
   // Handle Text-to-Speech (TTS) with Human-like AI Voice
@@ -426,23 +495,37 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     // If currently playing this message, stop
     if (speakingMsgId === msgId) {
       if (activeAudioRef.current) {
-        activeAudioRef.current.pause();
+        try {
+          activeAudioRef.current.pause();
+        } catch (e) {}
         activeAudioRef.current = null;
       }
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      if ("speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (e) {}
+      }
       setSpeakingMsgId(null);
       return;
     }
 
     // Stop any existing playback
     if (activeAudioRef.current) {
-      activeAudioRef.current.pause();
+      try {
+        activeAudioRef.current.pause();
+      } catch (e) {}
       activeAudioRef.current = null;
     }
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if ("speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+
+    const cleanText = prepareSpeechText(text);
+    if (!cleanText) return;
 
     setSpeakingMsgId(msgId);
-    const cleanText = text.replace(/[*_#`~\[\]()]/g, " ").trim().slice(0, 500);
 
     try {
       // 1. Try Gemini High-Quality Natural Human Voice via Server
@@ -456,27 +539,29 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         }),
       });
 
-      const data = await res.json();
-      if (data.success && data.audioBase64) {
-        const audio = new Audio(`data:${data.mimeType || "audio/wav"};base64,${data.audioBase64}`);
-        audio.playbackRate = settings.voiceSpeed || 1.0;
-        activeAudioRef.current = audio;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.audioBase64) {
+          const audio = new Audio(`data:${data.mimeType || "audio/wav"};base64,${data.audioBase64}`);
+          audio.playbackRate = settings.voiceSpeed || 1.0;
+          activeAudioRef.current = audio;
 
-        audio.onended = () => {
-          setSpeakingMsgId(null);
-          activeAudioRef.current = null;
-        };
-        audio.onerror = () => {
-          fallbackBrowserTTS(msgId, cleanText);
-        };
+          audio.onended = () => {
+            setSpeakingMsgId(null);
+            activeAudioRef.current = null;
+          };
+          audio.onerror = () => {
+            fallbackBrowserTTS(msgId, cleanText);
+          };
 
-        try {
-          await audio.play();
-          return;
-        } catch (playErr) {
-          console.warn("Direct play failed, using fallback TTS:", playErr);
-          fallbackBrowserTTS(msgId, cleanText);
-          return;
+          try {
+            await audio.play();
+            return;
+          } catch (playErr) {
+            console.warn("Direct play failed, using fallback TTS:", playErr);
+            fallbackBrowserTTS(msgId, cleanText);
+            return;
+          }
         }
       }
     } catch (e) {
@@ -825,8 +910,35 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (msgId: string, text: string) => {
     navigator.clipboard.writeText(text);
+    setCopiedMsgId(msgId);
+    setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+
+  const handleFeedback = (msgId: string, type: "up" | "down") => {
+    setFeedbackMap((prev) => ({
+      ...prev,
+      [msgId]: prev[msgId] === type ? undefined : (type as any),
+    }));
+  };
+
+  const handleRegenerateResponse = (msgIndex: number) => {
+    // Find the closest user prompt before this assistant response
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        handleSendMessage(messages[i].content);
+        break;
+      }
+    }
+  };
+
+  const handleSaveEdit = (msgId: string) => {
+    if (!editText.trim()) return;
+    const newText = editText.trim();
+    setEditingMsgId(null);
+    setEditText("");
+    handleSendMessage(newText);
   };
 
   return (
@@ -918,8 +1030,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, idx) => {
             const isUser = msg.role === "user";
+            const isCopied = copiedMsgId === msg.id;
+            const feedback = feedbackMap[msg.id];
+            const isEditing = editingMsgId === msg.id;
+
             return (
               <div
                 key={msg.id}
@@ -938,7 +1054,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
                 {/* Message Bubble */}
                 <div
-                  className={`max-w-[88%] sm:max-w-[82%] rounded-2xl p-3.5 sm:p-4 shadow-sm text-xs sm:text-sm leading-relaxed ${
+                  className={`max-w-[88%] sm:max-w-[82%] rounded-2xl p-3.5 sm:p-4 shadow-sm text-xs sm:text-sm leading-relaxed transition-all ${
                     isUser
                       ? "bg-indigo-600/90 text-white rounded-tr-none"
                       : "bg-slate-900/90 border border-slate-800/90 text-slate-100 rounded-tl-none"
@@ -951,19 +1067,51 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     </div>
                   )}
 
-                  {/* Formatted Content */}
-                  <FormattedMessage content={msg.content} />
+                  {/* Inline Message Edit (ChatGPT Style for User) */}
+                  {isUser && isEditing ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full bg-slate-950/90 border border-indigo-400/50 rounded-xl p-2 text-xs text-white focus:outline-none resize-none font-sans"
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingMsgId(null);
+                            setEditText("");
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[11px] font-medium"
+                        >
+                          रद्द करें
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEdit(msg.id)}
+                          className="px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold shadow-sm"
+                        >
+                          Save & Submit
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Formatted Content */
+                    <FormattedMessage content={msg.content} />
+                  )}
 
-                  {/* Citations */}
+                  {/* Citations / Sources */}
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
                       <p className="font-semibold text-cyan-400 mb-1 flex items-center gap-1">
                         <Globe className="w-3 h-3" /> Sources:
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        {msg.sources.map((src, idx) => (
+                        {msg.sources.map((src, sIdx) => (
                           <a
-                            key={idx}
+                            key={sIdx}
                             href={src.uri}
                             target="_blank"
                             rel="noreferrer"
@@ -976,36 +1124,84 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     </div>
                   )}
 
-                  {/* Footer Bar */}
-                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400">
-                    <span>{msg.timestamp}</span>
+                  {/* ChatGPT / Gemini Style Smart Footer Bar */}
+                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400 select-none">
+                    <span className="opacity-80 font-mono">{msg.timestamp}</span>
 
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center space-x-2">
+                      {/* Copy Action with smart Check indicator */}
                       <button
-                        onClick={() => copyToClipboard(msg.content)}
-                        className="p-1 hover:text-cyan-400 transition-colors"
-                        title="Copy"
+                        type="button"
+                        onClick={() => copyToClipboard(msg.id, msg.content)}
+                        className="p-1 hover:text-cyan-300 transition-colors flex items-center gap-1"
+                        title={isCopied ? "Copied!" : "Copy message"}
                       >
-                        <Copy className="w-3.5 h-3.5" />
+                        {isCopied ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                            <span className="text-emerald-400 text-[10px] font-bold">Copied</span>
+                          </>
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
                       </button>
 
-                      {!isUser && (
+                      {/* User Edit Button */}
+                      {isUser && !isEditing && (
                         <button
-                          onClick={() => speakText(msg.id, msg.content)}
-                          className={`p-1 transition-colors ${speakingMsgId === msg.id ? "text-cyan-400 animate-pulse" : "hover:text-cyan-400"}`}
-                          title="Voice Readout"
+                          type="button"
+                          onClick={() => {
+                            setEditingMsgId(msg.id);
+                            setEditText(msg.content);
+                          }}
+                          className="p-1 hover:text-cyan-300 transition-colors"
+                          title="Edit message"
                         >
-                          {speakingMsgId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                       )}
 
-                      <button
-                        onClick={() => deleteSingleMessage(msg.id)}
-                        className="p-1 hover:text-red-400 transition-colors"
-                        title="Delete this message"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Assistant Smart Actions (Voice, Feedback & Regenerate) */}
+                      {!isUser && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => speakText(msg.id, msg.content)}
+                            className={`p-1 transition-colors ${speakingMsgId === msg.id ? "text-cyan-400 animate-pulse" : "hover:text-cyan-300"}`}
+                            title="Voice Readout"
+                          >
+                            {speakingMsgId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {/* Thumbs Up / Down Feedback */}
+                          <button
+                            type="button"
+                            onClick={() => handleFeedback(msg.id, "up")}
+                            className={`p-1 transition-colors ${feedback === "up" ? "text-emerald-400" : "hover:text-cyan-300"}`}
+                            title="Good response"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFeedback(msg.id, "down")}
+                            className={`p-1 transition-colors ${feedback === "down" ? "text-rose-400" : "hover:text-cyan-300"}`}
+                            title="Bad response"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Regenerate Response */}
+                          <button
+                            type="button"
+                            onClick={() => handleRegenerateResponse(idx)}
+                            className="p-1 hover:text-cyan-300 transition-colors"
+                            title="Regenerate answer"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1029,8 +1225,28 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick Action Suggestion Bar (When chatting) */}
+      <div className="flex items-center space-x-1.5 overflow-x-auto py-1 px-1 custom-scrollbar text-[11px] select-none shrink-0">
+        {[
+          { label: "⚡ Summarize", prompt: "ऊपर दिए गए जवाब का संक्षेप (Summary) बिंदुवार (Bullet Points) में समझाएं:" },
+          { label: "💡 Explain Simply", prompt: "इसे बहुत ही आसान भाषा में उदाहरण के साथ समझाएं:" },
+          { label: "💻 Fix & Optimize Code", prompt: "इस कोड को सुधारें, ऑप्टिमाइज़ करें और बग्स ठीक करें:" },
+          { label: "🇮🇳 Translate to Hindi", prompt: "ऊपर दिए गए उत्तर का शुद्ध और सरल हिंदी में अनुवाद करें:" },
+          { label: "🎨 Generate 3D Prompt", prompt: "इसके लिए एक रियलिस्टिक 4K HD 3D इमेज जनरेशन प्रोम्प्ट बनाएं:" },
+        ].map((item, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => handleSendMessage(item.prompt)}
+            className="whitespace-nowrap px-2.5 py-1 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800/90 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 transition-all font-medium active:scale-95 shadow-sm"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {/* Meta AI / Gemini AI Style Input Box */}
-      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-2.5 shadow-xl backdrop-blur-md mt-2">
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-2.5 shadow-xl backdrop-blur-md mt-1">
         {selectedImage && (
           <div className="relative inline-block mb-2 ml-1">
             <img src={selectedImage} alt="Preview" className="w-14 h-14 object-cover rounded-xl border border-cyan-500 shadow-md" />
