@@ -8,10 +8,9 @@ import {
   Globe, 
   BrainCircuit, 
   UserCheck, 
-  Cpu,
+  Cpu, 
   SlidersHorizontal,
-  PanelLeft,
-  Plus
+  PanelLeft
 } from "lucide-react";
 
 interface NavbarProps {

@@ -475,19 +475,19 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-    if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)/i.test(q)) {
-      return `Hello! मैं HK Nexus AI हूँ। सब कुछ एकदम बढ़िया है भाई! बताइए, आज किस विषय पर काम करना है?`;
+    if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)$/i.test(q)) {
+      return `सब एकदम बढ़िया भाई! आप बताओ, आज क्या नया चल रहा है?`;
     }
     if (/और बताओ|और क्या|कैसे हो|क्या हाल|how are you/i.test(q)) {
-      return `मैं बिल्कुल मस्त और आपकी सहायता के लिए तैयार हूँ! आप बताइए, आपका क्या हाल-चाल है?`;
+      return `सब एकदम मस्त भाई! आप बताइए, आपका क्या हाल-चाल है?`;
     }
-    if (/आज क्या है|आज की तारीख|आज का दिन|today|date|time/i.test(q)) {
+    if (/आज क्या है|आज की तारीख|आज का दिन|today.*date|time.*now/i.test(q)) {
       return `आज ${dateStr} है और समय लगभग ${timeStr} हो रहा है।`;
     }
-    if (/who created you|किसने बनाया|owner|developer|hariom/i.test(q)) {
-      return `मुझे **हरिओम कुशवाहा (Hariom Kushwaha)** - HK Tech World, मौरानीपुर द्वारा विकसित किया गया है।`;
+    if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(q)) {
+      return `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`;
     }
-    return `नमस्ते! आपके प्रश्न "${query}" पर मैं तैयार हूँ। बताइए इसमें क्या खास समाधान या कोड चाहिए?`;
+    return `मैं आपकी पूरी सहायता के लिए तैयार हूँ। बताइए आपके प्रश्न "${query}" पर क्या समाधान चाहिए?`;
   };
 
   // Handle Text-to-Speech (TTS) with Human-like AI Voice

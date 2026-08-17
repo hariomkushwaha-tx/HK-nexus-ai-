@@ -2,18 +2,27 @@
   "short_name": "HK Nexus AI",
   "name": "HK Nexus AI - Free Multimodal AI Assistant",
   "description": "Smart Multimodal AI Assistant created by Hariom Kushwaha (HK Tech World)",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "categories": ["productivity", "utilities", "education"],
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%230891b2'/><text x='50%' y='58%' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='900' font-size='48'>HK</text></svg>",
+      "src": "/icon.svg",
       "type": "image/svg+xml",
       "sizes": "192x192 512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "maskable"
     }
-  ],
-  "start_url": "/",
-  "background_color": "#020617",
-  "theme_color": "#0891b2",
-  "display": "standalone",
-  "orientation": "portrait-primary",
-  "scope": "/"
+  ]
 }
