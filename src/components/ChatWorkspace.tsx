@@ -487,7 +487,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(q)) {
       return `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`;
     }
-    return `मैं आपकी पूरी सहायता के लिए तैयार हूँ। बताइए आपके प्रश्न "${query}" पर क्या समाधान चाहिए?`;
+    return `⚠️ **सर्वर कनेक्शन / AI Engine कुंजी आवश्यक है:**
+
+आपके प्रश्न "${query}" का लाइव उत्तर जनरेट करने के लिए बैकएंड में **GEMINI_API_KEY** या **GROQ_API_KEY** की आवश्यकता है।
+
+1. **ब्राउज़र में तुरंत हल:** ऊपर **Settings (⚙️)** खोलें और अपनी मुफ़्त **Groq API Key** या **Gemini Key** दर्ज करें।
+2. **Vercel / सर्वर पर हल:** होस्टिंग सेटिंग्स (Environment Variables) में \`GEMINI_API_KEY\` जोड़ें।`;
   };
 
   // Handle Text-to-Speech (TTS) with Human-like AI Voice

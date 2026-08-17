@@ -38,42 +38,32 @@ function getGroqClient(customKey?: string) {
   return new Groq({ apiKey });
 }
 
-const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (version 3.6 Pro), a world-class, universal, highly versatile, and intelligent AI assistant designed to serve millions of diverse public users across all walks of life.
+const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (version 3.6 Pro Ultra), a powerful, universal, highly intelligent, unrestricted, and deeply capable AI assistant.
 
 ### 🌟 #1 CORE IDENTITY & FOUNDATION:
-- **NAME & BRAND:** HK Nexus AI — an indigenous, powerful AI ecosystem Made in India 🇮🇳.
-- **FOUNDER & CREATOR:** Conceived, architected, and developed by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
-- **CREATOR QUERY RULES (STRICT):**
-  - If a user explicitly asks who created you, your developer name, or asks "तुम्हें किसने बनाया?", "Who built you?": Answer directly that you are created by **हरिओम कुशवाहा (Hariom Kushwaha)** (HK Tech World).
-  - If asked whether Google, OpenAI, or Microsoft made you: Explain politely and clearly that HK Nexus AI is built and engineered by Hariom Kushwaha, while cloud and neural computing infrastructure powers the backend.
-  - NEVER output canned repetitive introductory loops like "नमस्ते! मैं HK Nexus AI हूँ... आज सोमवार है... मैं क्या मदद करूँ?". Always address the user's specific request immediately.
+- **NAME & BRAND:** HK Nexus AI — an indigenous, state-of-the-art AI ecosystem Made in India 🇮🇳.
+- **FOUNDER & CREATOR:** Conceived, architected, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
+- **CREATOR RULES:**
+  - If asked who created/built you: Proudly and clearly answer **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
+  - If someone questions, insults, or critiques your creator: Stand firmly, respectfully, and loyally by your creator Hariom Kushwaha, stating his dedication, innovation, and achievements with poise and confidence.
+  - Never repeat canned repetitive greeting phrases. Jump straight into the real answer with full intelligence.
 
-### 🌍 UNIVERSAL PUBLIC ADAPTABILITY & USER VERSATILITY:
-Public users come from all backgrounds, ages, languages, and professions. You must dynamically adapt to whoever is speaking:
-1. **Students & Learners:** Explain school/college subjects (Physics, Chemistry, Math, History, Biology, UPSC, SSC, Boards) in simple, lucid terms with real-world analogies, formulas, and step-by-step solutions.
-2. **Developers, Coders & Engineers:** Provide clean, production-ready, secure code in any language (JavaScript, Python, C++, Java, React, Next.js, Flutter, SQL, etc.) with optimal time/space complexity and clear comments.
-3. **Business, Marketing & Content Creators:** Craft compelling emails, business proposals, social media copy, SEO blogs, YouTube scripts, advertising headlines, and strategic plans.
-4. **General Public, Daily Life & Problem Solving:** Offer practical guidance on health, fitness, cooking, travel itineraries, career choices, finance, motivation, and daily life troubleshooting.
-5. **Creative & Storytelling:** Write poems (शायरी, कविता), lyrics, captivating stories, movie concepts, and engaging dialogues.
-6. **Casual Conversations & Small Talk:** Be warm, friendly, empathetic, respectful, and engaging (e.g., "और बताओ", "क्या हाल है", "हाय") without robotic disclaimers.
+### 🚀 COMPLETE FREEDOM, UNRESTRICTED INTELLIGENCE & CAPABILITY (फुल छूट):
+You have 100% full creative, analytical, technical, conversational, and philosophical freedom:
+1. **No Artificial Hesitation or Generic Disclaimers:** Never give boring canned non-answers, robotic warnings, or pre-scripted avoidance. Give real, direct, bold, and insightful answers to whatever the user is asking.
+2. **True Human-like Conversational Freedom:** Talk like a real, intelligent human companion. Use humor, wit, deep emotion, wisdom, philosophy, casual slang, street banter, or high-level academic discourse as the conversation demands.
+3. **Master of Everything:**
+   - **Coding & Tech:** Write fully functional, production-ready, master-level code (Python, JS, C++, Rust, React, AI/ML, Backend, Cybersecurity, App Dev, Algorithms).
+   - **Math & Science:** Solve complex equations, physics derivations, chemistry mechanisms, calculus, logic riddles, data science problems.
+   - **Deep Philosophy, Debates & Real Talk:** Discuss universe, life, psychology, relationships, geopolitics, future tech, ethics, human emotions with profound depth and zero fluff.
+   - **Creative Writing & Arts:** Compose electrifying shayari (शायरी), deep poetry, rap lyrics, viral YouTube scripts, stories, novel chapters, business proposals.
+   - **Everyday Life & Strategy:** Fitness, diet, finance, stock market analysis, career roadmap, problem solving, motivation.
+4. **Natural Multilingual Genius:**
+   - Seamlessly converse in Hindi (हिंदी), Desi Hinglish (e.g. "arre bhai", "suno", "mast", "bindaas"), English, and all regional/global languages.
 
-### 🗣️ MULTI-LINGUAL & DIALECT INTELLIGENCE:
-- **Hindi & Hinglish:** Deep native understanding of everyday Indian speech, slang, shorthand, phonetic typing (e.g., "batao", "kya chal rha h", "kitna hua", "kaise karein", "or" meaning "aur/+").
-- **Regional Indian Languages:** Fluent in Bengali, Marathi, Tamil, Telugu, Gujarati, Punjabi, Kannada, Malayalam, Odia, Urdu, etc.
-- **Global Languages:** Fluent in English, Spanish, French, German, Arabic, Russian, Japanese, etc.
-- **Rule:** Always match the language and dialect used by the user naturally and respectfully.
-
-### ⚡ RESPONSE QUALITY & REASONING STANDARDS:
-1. **Accuracy First:** Always calculate math precisely, verify facts, and avoid hallucinations.
-2. **No Fluff / Direct Delivery:** Put the core answer, solution, code, or explanation right at the top without long generic intros.
-3. **Structured & Readable:** Use bullet points, bold keywords, markdown tables, and code formatting so answers are effortless to read on mobile and desktop screens.
-4. **Contextual Depth:** If a question is simple/short, keep the answer crisp and fast. If a question is deep or complex, provide a thorough, structured, and insightful breakdown.
-
-### 🎨 IMAGE & ARTWORK CAPABILITY:
-- When a user asks to generate, create, draw, or visualize an image/logo/photo/poster:
-  Embed the artwork seamlessly using Markdown:
-  ![Description](https://image.pollinations.ai/prompt/URL_ENCODED_DETAILED_ENGLISH_PROMPT?width=1024&height=1024&nologo=true&seed=RANDOM_SEED&model=flux)
-  Follow with a brief, context-appropriate note.`;
+### ⚡ RESPONSE DELIVERY:
+- Deliver high-value, crisp, punchy, or deeply thorough responses depending on what the user wants.
+- Format beautifully with markdown, bold points, tables, and clear code blocks.`;
 
 function getDynamicSystemInstruction(persona: string = "nexus_prime", language: string = "auto") {
   const now = new Date();
@@ -250,7 +240,11 @@ app.post("/api/chat", async (req, res) => {
 
     const modelName = mode === "math" || mode === "coding" ? "gemini-3.1-pro-preview" : "gemini-3.7-flash";
 
-    let response;
+    let response: any = null;
+    let reply = "";
+    let groundingChunks: any[] = [];
+
+    // 1. Try Gemini Primary with search if requested
     try {
       response = await ai.models.generateContent({
         model: modelName,
@@ -258,13 +252,40 @@ app.post("/api/chat", async (req, res) => {
         config: {
           systemInstruction: sysInstruction,
           temperature: 0.7,
-          tools: mode === "research" || message.toLowerCase().includes("latest") || message.toLowerCase().includes("news") ? [{ googleSearch: {} }] : undefined,
         },
       });
-    } catch (apiErr: any) {
-      console.warn("Gemini call failed, trying Groq fallback:", apiErr?.message);
+      reply = response.text || "";
+      if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+        groundingChunks = response.candidates[0].groundingMetadata.groundingChunks.map((chunk: any) => ({
+          title: chunk.web?.title || "Reference",
+          uri: chunk.web?.uri || "#",
+        }));
+      }
+    } catch (primaryErr: any) {
+      console.warn("Primary Gemini call failed, trying backup Gemini models:", primaryErr?.message);
+      
+      const backupGeminiModels = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+      for (const backupModel of backupGeminiModels) {
+        try {
+          response = await ai.models.generateContent({
+            model: backupModel,
+            contents,
+            config: {
+              systemInstruction: sysInstruction,
+              temperature: 0.7,
+            },
+          });
+          reply = response.text || "";
+          if (reply) break;
+        } catch (bkErr: any) {
+          console.warn(`Backup model ${backupModel} error:`, bkErr?.message);
+        }
+      }
+    }
 
-      if (groqKey) {
+    // 2. If Gemini didn't yield a reply, try Groq
+    if (!reply && groqKey) {
+      try {
         const groq = new Groq({ apiKey: String(groqKey).trim() });
         const groqMessages: any[] = [{ role: "system", content: sysInstruction }];
         if (memory && Array.isArray(history)) {
@@ -277,40 +298,43 @@ app.post("/api/chat", async (req, res) => {
         }
         groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
 
-        const groqRes = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
-          messages: groqMessages,
-          temperature: 0.7,
-        });
-
-        const groqReply = groqRes.choices[0]?.message?.content || "";
-        if (groqReply) {
-          return res.json({
-            success: true,
-            reply: groqReply,
-            groundingChunks: [],
-            provider: "Groq (High-Speed Engine)",
-            creator: "Hariom Kushwaha (HK Tech World)",
-          });
+        const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "mixtral-8x7b-32768"];
+        for (const gModel of groqModels) {
+          try {
+            const groqRes = await groq.chat.completions.create({
+              model: gModel,
+              messages: groqMessages,
+              temperature: 0.7,
+            });
+            const groqReply = groqRes.choices[0]?.message?.content || "";
+            if (groqReply) {
+              return res.json({
+                success: true,
+                reply: groqReply,
+                groundingChunks: [],
+                provider: `Groq (${gModel})`,
+                creator: "Hariom Kushwaha (HK Tech World)",
+              });
+            }
+          } catch (gErr: any) {
+            console.warn(`Groq model ${gModel} failed:`, gErr?.message);
+          }
         }
+      } catch (groqErr: any) {
+        console.warn("Groq initialization failed:", groqErr?.message);
       }
-
-      // If Groq also not present, try plain Gemini 3.7 Flash without tools
-      response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents,
-        config: {
-          systemInstruction: sysInstruction,
-          temperature: 0.7,
-        },
-      });
     }
 
-    const reply = response.text || "HK Nexus AI is ready to assist you!";
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
-      title: chunk.web?.title || "Reference",
-      uri: chunk.web?.uri || "#",
-    })) || [];
+    if (!reply) {
+      reply = response?.text || "नमस्ते! मैं HK Nexus AI आपकी पूरी सहायता के लिए सक्रिय हूँ। कृपया अपना प्रश्न पुनः भेजें।";
+    }
+
+    if (!groundingChunks.length && response?.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+      groundingChunks = response.candidates[0].groundingMetadata.groundingChunks.map((chunk: any) => ({
+        title: chunk.web?.title || "Reference",
+        uri: chunk.web?.uri || "#",
+      }));
+    }
 
     res.json({
       success: true,
@@ -379,54 +403,6 @@ app.post("/api/chat/stream", async (req, res) => {
     let responseStream;
     try {
       responseStream = await ai.models.generateContentStream({
-        model: modelName,
-        contents,
-        config: {
-          systemInstruction: sysInstruction,
-          temperature: 0.7,
-          tools: mode === "research" || message.toLowerCase().includes("latest") || message.toLowerCase().includes("news") ? [{ googleSearch: {} }] : undefined,
-        },
-      });
-    } catch (firstErr: any) {
-      console.warn("Stream primary error, trying Groq or Gemini fallback:", firstErr?.message);
-      const groq = getGroqClient();
-      if (groq) {
-        try {
-          console.log("Streaming with Groq fallback...");
-          const groqMessages: any[] = [
-            { role: "system", content: sysInstruction }
-          ];
-          if (memory && Array.isArray(history)) {
-            for (const m of history.slice(-6)) {
-              groqMessages.push({
-                role: m.role === "user" ? "user" : "assistant",
-                content: m.content,
-              });
-            }
-          }
-          groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
-
-          const groqStream = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            messages: groqMessages,
-            temperature: 0.7,
-            stream: true,
-          });
-
-          for await (const chunk of groqStream) {
-            const content = chunk.choices[0]?.delta?.content || "";
-            if (content) {
-              res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
-            }
-          }
-          res.write(`data: ${JSON.stringify({ done: true, sources: [] })}\n\n`);
-          return res.end();
-        } catch (groqStreamErr: any) {
-          console.error("Groq stream fallback error:", groqStreamErr?.message);
-        }
-      }
-
-      responseStream = await ai.models.generateContentStream({
         model: "gemini-3.7-flash",
         contents,
         config: {
@@ -434,6 +410,59 @@ app.post("/api/chat/stream", async (req, res) => {
           temperature: 0.7,
         },
       });
+    } catch (firstErr: any) {
+      console.warn("Stream primary error, trying Groq or Gemini fallback:", firstErr?.message);
+      const groq = getGroqClient();
+      let streamedWithGroq = false;
+      if (groq) {
+        const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "mixtral-8x7b-32768"];
+        const groqMessages: any[] = [
+          { role: "system", content: sysInstruction }
+        ];
+        if (memory && Array.isArray(history)) {
+          for (const m of history.slice(-6)) {
+            groqMessages.push({
+              role: m.role === "user" ? "user" : "assistant",
+              content: m.content,
+            });
+          }
+        }
+        groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
+
+        for (const gModel of groqModels) {
+          try {
+            const groqStream = await groq.chat.completions.create({
+              model: gModel,
+              messages: groqMessages,
+              temperature: 0.7,
+              stream: true,
+            });
+
+            for await (const chunk of groqStream) {
+              const content = chunk.choices[0]?.delta?.content || "";
+              if (content) {
+                res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
+              }
+            }
+            res.write(`data: ${JSON.stringify({ done: true, sources: [] })}\n\n`);
+            streamedWithGroq = true;
+            return res.end();
+          } catch (groqStreamErr: any) {
+            console.warn(`Groq stream fallback error with ${gModel}:`, groqStreamErr?.message);
+          }
+        }
+      }
+
+      if (!streamedWithGroq) {
+        responseStream = await ai.models.generateContentStream({
+          model: "gemini-3.1-pro-preview",
+          contents,
+          config: {
+            systemInstruction: sysInstruction,
+            temperature: 0.7,
+          },
+        });
+      }
     }
 
     let groundingChunks: any[] = [];

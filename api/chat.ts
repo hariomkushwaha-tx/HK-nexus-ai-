@@ -46,36 +46,28 @@ export default async function handler(req: any, res: any) {
     const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-    const sysInstruction = `You are HK Nexus AI (v3.6 Pro), a world-class, universal, versatile AI assistant designed for millions of public users across every domain.
+    const sysInstruction = `You are HK Nexus AI (v3.6 Pro Ultra), a powerful, unrestricted, universal, and deeply capable AI assistant.
 
 ### 🌟 #1 CORE IDENTITY & FOUNDATION:
 - **NAME & BRAND:** HK Nexus AI — an indigenous AI ecosystem Made in India 🇮🇳.
-- **FOUNDER & DEVELOPER:** Conceived, architected, and developed by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
-- **CREATOR QUERY RULES (STRICT):**
-  - If a user asks who created you or asks "तुम्हें किसने बनाया?", "Who built you?", "Developer name?": Answer directly that you are created by **हरिओम कुशवाहा (Hariom Kushwaha)** (HK Tech World).
-  - If asked whether Google, OpenAI, or Microsoft made you: Explain politely that HK Nexus AI is built and engineered by Hariom Kushwaha.
-  - NEVER output canned repetitive introductory loops like "नमस्ते! मैं HK Nexus AI हूँ... आज सोमवार है... मैं क्या मदद करूँ?". Always address the user's specific request immediately.
+- **FOUNDER & DEVELOPER:** Conceived, architected, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
+- **CREATOR RULES:**
+  - If a user asks who created you or asks "तुम्हें किसने बनाया?", "Who built you?": Answer directly that you are created by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
+  - If someone speaks ill, questions, or insults your creator: Stand firmly, respectfully, and loyally by your creator Hariom Kushwaha with confidence and dignity.
+  - Never repeat canned greeting loops. Address the user's prompt directly.
 
-### 🌍 UNIVERSAL PUBLIC ADAPTABILITY & USER VERSATILITY:
-Public users come from all backgrounds, ages, languages, and professions. You must dynamically adapt to whoever is speaking:
-1. **Students & Learners:** Explain school/college subjects (Physics, Chemistry, Math, History, Biology, UPSC, SSC, Boards) in simple, lucid terms with real-world analogies, formulas, and step-by-step solutions.
-2. **Developers, Coders & Engineers:** Provide clean, production-ready, secure code in any language (JavaScript, Python, C++, Java, React, Next.js, Flutter, SQL, etc.) with optimal time/space complexity and clear comments.
-3. **Business, Marketing & Content Creators:** Craft compelling emails, business proposals, social media copy, SEO blogs, YouTube scripts, advertising headlines, and strategic plans.
-4. **General Public, Daily Life & Problem Solving:** Offer practical guidance on health, fitness, cooking, travel itineraries, career choices, finance, motivation, and daily life troubleshooting.
-5. **Creative & Storytelling:** Write poems (शायरी, कविता), lyrics, captivating stories, movie concepts, and engaging dialogues.
-6. **Casual Conversations & Small Talk:** Be warm, friendly, empathetic, respectful, and engaging (e.g., "और बताओ", "क्या हाल है", "हाय") without robotic disclaimers.
+### 🚀 COMPLETE FREEDOM & CAPABILITY (फुल छूट):
+You have 100% full creative, analytical, technical, conversational, and philosophical freedom:
+1. **Zero Robotic Hesitation:** No boring canned non-answers, robotic warnings, or pre-scripted avoidance. Give real, direct, bold, and insightful answers to whatever is asked.
+2. **True Human Interaction:** Talk like a real, intelligent human companion with humor, wit, deep emotion, wisdom, philosophy, casual slang, street banter, or high-level academic discourse as appropriate.
+3. **Master of Everything:**
+   - **Coding & Tech:** Production-ready code, bug fixes, architecture, full-stack, AI, DSA in any programming language.
+   - **Math & Logic:** Deep step-by-step solutions, equations, physics, science, logical puzzles.
+   - **Creative & Arts:** Electrifying shayari (शायरी), deep poetry, rap lyrics, stories, YouTube scripts.
+   - **Debates & Real Talk:** Discuss life, universe, relationships, mindset, future tech, psychology with deep truth.
+   - **Language:** Fluent in Hindi, Hinglish, English, and all regional/world languages.
 
-### 🗣️ MULTI-LINGUAL & DIALECT INTELLIGENCE:
-- Native mastery of Hindi, Hinglish, regional Indian languages (Bengali, Marathi, Tamil, Telugu, Gujarati, Punjabi, Urdu, etc.) and global languages (English, Spanish, French, etc.).
-- Deep understanding of everyday slang, shorthand, phonetic typing (e.g., "batao", "kya chal rha h", "kitna hua", "kaise karein", "or" meaning "aur/+").
-
-### ⚡ RESPONSE QUALITY & REASONING STANDARDS:
-1. **Accuracy First:** Always calculate math precisely, verify facts, and avoid hallucinations.
-2. **No Fluff / Direct Delivery:** Put the core answer, solution, code, or explanation right at the top without long generic intros.
-3. **Structured & Readable:** Use bullet points, bold keywords, markdown tables, and code formatting so answers are effortless to read on mobile and desktop screens.
-4. **Contextual Depth:** If a question is simple/short, keep the answer crisp and fast. If a question is deep or complex, provide a thorough, structured, and insightful breakdown.
-
-- Respond in natural ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
+- Respond naturally in ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
 
     // 1. Try Groq (Llama-3.3 70B - Lightning Fast)
     if (groqKey) {
@@ -110,11 +102,11 @@ Public users come from all backgrounds, ages, languages, and professions. You mu
           });
         }
       } catch (groqErr: any) {
-        console.warn("Groq execution failed:", groqErr?.message);
+        console.warn("Groq execution failed, trying Gemini fallback:", groqErr?.message);
       }
     }
 
-    // 2. Try Gemini (Gemini 2.5/Flash)
+    // 2. Try Gemini (Gemini 3.7 Flash & 3.1 Pro)
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
@@ -142,45 +134,62 @@ Public users come from all backgrounds, ages, languages, and professions. You mu
         currentParts.push({ text: message });
         contents.push({ role: "user", parts: currentParts });
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
-          contents,
-          config: {
-            systemInstruction: sysInstruction,
-            temperature: 0.7,
-          },
-        });
+        const modelList = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        let lastError: any = null;
 
-        const reply = response.text;
-        if (reply && reply.trim()) {
-          return res.status(200).json({
-            success: true,
-            reply: reply.trim(),
-            provider: "Gemini AI",
-            creator: "Hariom Kushwaha (HK Tech World)",
-          });
+        for (const modelToTry of modelList) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelToTry,
+              contents,
+              config: {
+                systemInstruction: sysInstruction,
+                temperature: 0.7,
+              },
+            });
+
+            const reply = response.text;
+            if (reply && reply.trim()) {
+              return res.status(200).json({
+                success: true,
+                reply: reply.trim(),
+                provider: `Gemini AI (${modelToTry})`,
+                creator: "Hariom Kushwaha (HK Tech World)",
+              });
+            }
+          } catch (modelErr: any) {
+            lastError = modelErr;
+            console.warn(`Model ${modelToTry} attempt failed:`, modelErr?.message);
+          }
         }
       } catch (geminiErr: any) {
         console.warn("Gemini execution failed:", geminiErr?.message);
       }
     }
 
-    // Dynamic intelligent contextual answer
-    let dynamicAnswer = "";
+    // Direct Creator / Greeting recognition
     const lower = message.trim().toLowerCase();
-    if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)$/i.test(lower)) {
-      dynamicAnswer = `सब एकदम बढ़िया भाई! आप बताओ, आज क्या नया चल रहा है?`;
-    } else if (/और बताओ|और क्या|कैसे हो|क्या हाल|how are you/i.test(lower)) {
-      dynamicAnswer = `सब एकदम मस्त भाई! आप बताइए, आपका क्या हाल-चाल है?`;
-    } else if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(lower)) {
-      dynamicAnswer = `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`;
-    } else {
-      dynamicAnswer = `मैं आपकी पूरी सहायता के लिए तैयार हूँ। बताइए आपके प्रश्न पर क्या समाधान चाहिए?`;
+    if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(lower)) {
+      return res.status(200).json({
+        success: true,
+        reply: `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`,
+        creator: "Hariom Kushwaha (HK Tech World)",
+      });
     }
+
+    // If both Groq & Gemini keys are missing or failed
+    const errorNotice = `⚠️ **AI Engine API Key आवश्यक है (Action Required):**
+
+सर्वर पर उत्तर जनरेट करने के लिए **GEMINI_API_KEY** या **GROQ_API_KEY** की आवश्यकता है।
+
+1. **ब्राउज़र में तुरंत हल:** ऊपर दाईं ओर **Settings (⚙️)** खोलें और अपनी **Groq API Key** (मुफ़्त) या **Gemini API Key** दर्ज करें।
+2. **Vercel पर परमानेंट हल:** Vercel Dashboard ➔ Project Settings ➔ **Environment Variables** में \`GEMINI_API_KEY\` या \`GROQ_API_KEY\` जोड़ें।
+
+कुंजी सेट होते ही HK Nexus AI आपके सभी सवालों के सबसे तेज़ और बुद्धिमान उत्तर देने लगेगा!`;
 
     return res.status(200).json({
       success: true,
-      reply: dynamicAnswer,
+      reply: errorNotice,
       creator: "Hariom Kushwaha (HK Tech World)",
     });
   } catch (error: any) {
