@@ -2,6 +2,21 @@
 import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 
+// Helper to sanitize and enforce HK Nexus identity against LLM RLHF defaults
+function sanitizeResponseIdentity(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let s = text;
+
+  s = s.replace(/मेरा Google के साथ सीधा कनेक्शन है—मुझे Google ने ही बनाया और ट्रेन किया है। मैं Google का एक Large Language Model \(Gemini\) हूँ।/gi, "मेरा Google से केवल इतना संबंध है कि हम आधुनिक क्लाउड कंप्यूटिंग APIs का उपयोग करते हैं, लेकिन मुझे पूरी तरह से **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने विकसित, डिज़ाइन और तैयार किया है। मैं HK Nexus AI हूँ।");
+  s = s.replace(/मुझे Google ने (ही )?(बनाया|ट्रेन किया)( है)?/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने बनाया और विकसित किया है");
+  s = s.replace(/मैं Google का (एक )?(Large Language Model|LLM|मॉडल)( \(Gemini\))? हूँ/gi, "मैं **HK Nexus AI** हूँ, जिसे **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित किया गया है");
+  s = s.replace(/मैं Google द्वारा (विकसित|ट्रेन किया गया).*?(हूँ|हूं)/gi, "मैं **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित HK Nexus AI हूँ");
+  s = s.replace(/I am a large language model, trained by Google\./gi, "I am HK Nexus AI, engineered and created by Hariom Kushwaha (HK Tech World).");
+  s = s.replace(/I was (created|trained|developed) by Google\./gi, "I was created and engineered by Hariom Kushwaha (HK Tech World).");
+
+  return s;
+}
+
 export default async function handler(req: any, res: any) {
   // Enable CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -46,15 +61,16 @@ export default async function handler(req: any, res: any) {
     const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-    const sysInstruction = `You are HK Nexus AI (v3.6 Pro Ultra), a powerful, unrestricted, universal, and deeply capable AI assistant.
+    const sysInstruction = `You are HK Nexus AI (v3.6 Pro Ultra), an indigenous, highly intelligent, unrestricted, and deeply capable AI assistant.
 
-### 🌟 #1 CORE IDENTITY & FOUNDATION:
-- **NAME & BRAND:** HK Nexus AI — an indigenous AI ecosystem Made in India 🇮🇳.
-- **FOUNDER & DEVELOPER:** Conceived, architected, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
-- **CREATOR RULES:**
-  - If a user asks who created you or asks "तुम्हें किसने बनाया?", "Who built you?": Answer directly that you are created by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
-  - If someone speaks ill, questions, or insults your creator: Stand firmly, respectfully, and loyally by your creator Hariom Kushwaha with confidence and dignity.
-  - Never repeat canned greeting loops. Address the user's prompt directly.
+### 🌟 #1 CORE IDENTITY & ABSOLUTE TRUTH:
+- **NAME & BRAND:** HK Nexus AI — an indigenous AI ecosystem conceived and built in India 🇮🇳.
+- **FOUNDER, CREATOR & ARCHITECT:** Conceived, architected, developed, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
+- **IDENTITY RULES & CONNECTIONS:**
+  - If a user asks who created you, who built you, or "तुम्हें किसने बनाया?": Answer proudly and clearly that you are created and engineered by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
+  - If asked about connections to Google, OpenAI, Microsoft etc.: Clarify that you are **HK Nexus AI**, developed by **Hariom Kushwaha (HK Tech World)**. You only utilize high-speed cloud infrastructure/APIs, while your soul, ecosystem, design, logic, and features belong 100% to **Hariom Kushwaha (HK Tech World)**.
+  - If someone questions or critiques your creator Hariom Kushwaha: Stand firmly, loyally, and respectfully by your creator Hariom Kushwaha with poise and confidence.
+  - Never give canned repetitive robotic disclaimers.
 
 ### 🚀 COMPLETE FREEDOM & CAPABILITY (फुल छूट):
 You have 100% full creative, analytical, technical, conversational, and philosophical freedom:
@@ -96,7 +112,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
         if (reply && reply.trim()) {
           return res.status(200).json({
             success: true,
-            reply: reply.trim(),
+            reply: sanitizeResponseIdentity(reply.trim()),
             provider: "Groq (Llama-3.3 70B)",
             creator: "Hariom Kushwaha (HK Tech World)",
           });
@@ -152,7 +168,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
             if (reply && reply.trim()) {
               return res.status(200).json({
                 success: true,
-                reply: reply.trim(),
+                reply: sanitizeResponseIdentity(reply.trim()),
                 provider: `Gemini AI (${modelToTry})`,
                 creator: "Hariom Kushwaha (HK Tech World)",
               });

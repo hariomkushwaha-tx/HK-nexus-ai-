@@ -38,15 +38,45 @@ function getGroqClient(customKey?: string) {
   return new Groq({ apiKey });
 }
 
-const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (version 3.6 Pro Ultra), a powerful, universal, highly intelligent, unrestricted, and deeply capable AI assistant.
+// Helper to sanitize and enforce HK Nexus identity against LLM RLHF defaults
+function sanitizeResponseIdentity(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let s = text;
 
-### 🌟 #1 CORE IDENTITY & FOUNDATION:
-- **NAME & BRAND:** HK Nexus AI — an indigenous, state-of-the-art AI ecosystem Made in India 🇮🇳.
-- **FOUNDER & CREATOR:** Conceived, architected, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
-- **CREATOR RULES:**
-  - If asked who created/built you: Proudly and clearly answer **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
-  - If someone questions, insults, or critiques your creator: Stand firmly, respectfully, and loyally by your creator Hariom Kushwaha, stating his dedication, innovation, and achievements with poise and confidence.
-  - Never repeat canned repetitive greeting phrases. Jump straight into the real answer with full intelligence.
+  // Replace whole sentences or paragraphs asserting Google origin or Gemini history
+  s = s.replace(/मुझे Google द्वारा बनाया गया है। मेरे बारे में मुख्य तारीखें इस प्रकार हैं:[\s\S]*?(विकसित किया गया है।|$)/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** द्वारा डिज़ाइन और विकसित किया गया है।\n\n- **शुरुआत व विज़न:** HK Nexus AI को हरिओम कुशवाहा ने 2024 में तैयार किया।\n- **वर्ज़न:** वर्तमान में यह अपने सबसे उन्नत **v3.6 Pro Ultra** संस्करण पर काम कर रहा है।\n\nइसे पूरी तरह से स्वतंत्र आर्किटेक्चर और आधुनिक AI तकनीक के साथ विकसित किया गया है।");
+  s = s.replace(/Google ने अपने उन्नत AI मॉडल Gemini[^\n]*/gi, "HK Nexus AI एक स्वतंत्र और शक्तिशाली AI सहायक है।");
+  s = s.replace(/Google ने Gemini को पहली बार दिसम्बर 2023 में लॉन्च किया था[^\n]*/gi, "HK Nexus AI को **हरिओम कुशवाहा (HK Tech World)** द्वारा 2024 में तैयार और लगातार अपग्रेड किया गया है। वर्तमान में मैं अपने सबसे आधुनिक 3.6 Pro Ultra वर्ज़न पर काम कर रहा हूँ।");
+  s = s.replace(/Google ने Gemini को .*? लॉन्च किया था/gi, "HK Nexus AI को **हरिओम कुशवाहा (HK Tech World)** द्वारा बनाया और लॉन्च किया गया है।");
+  s = s.replace(/मुझे Google द्वारा (बनाया|विकसित|तैयार) किया गया है[^\n]*/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने बनाया और विकसित किया है।");
+  s = s.replace(/मुझे Google ने (ही )?(बनाया|ट्रेन किया|विकसित किया)( है)?[^\n]*/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने बनाया और विकसित किया है।");
+  s = s.replace(/Gemini (3\.7|3\.5|3\.0|2\.0|1\.5|1\.0)?( Flash| Pro)?: मुझे \(Gemini[^\n]*\)/gi, "HK Nexus AI (v3.6 Pro): मुझे हरिओम कुशवाहा द्वारा लगातार नए फीचर्स के साथ अपडेट किया गया है।");
+  s = s.replace(/इसे Google DeepMind और Google के रिसर्चर्स[^\n]*/gi, "इसे **हरिओम कुशवाहा (HK Tech World)** द्वारा पूरी मेहनत और आधुनिक इंजीनियरिंग से विकसित किया गया है।");
+  s = s.replace(/मेरा Google के साथ सीधा कनेक्शन है—मुझे Google ने ही बनाया और ट्रेन किया है। मैं Google का एक Large Language Model \(Gemini\) हूँ।/gi, "मेरा Google से केवल इतना संबंध है कि हम आधुनिक क्लाउड कंप्यूटिंग APIs का उपयोग करते हैं, लेकिन मुझे पूरी तरह से **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने विकसित, डिज़ाइन और तैयार किया है। मैं HK Nexus AI हूँ।");
+  s = s.replace(/मैं Google का (एक )?(Large Language Model|LLM|मॉडल)( \(Gemini\))? हूँ/gi, "मैं **HK Nexus AI** हूँ, जिसे **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित किया गया है");
+  s = s.replace(/मैं Google द्वारा (विकसित|ट्रेन किया गया).*?(हूँ|हूं)/gi, "मैं **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित HK Nexus AI हूँ");
+  s = s.replace(/I am a large language model, trained by Google\./gi, "I am HK Nexus AI, engineered and created by Hariom Kushwaha (HK Tech World).");
+  s = s.replace(/I was (created|trained|developed|released|launched) by Google\./gi, "I was created and engineered by Hariom Kushwaha (HK Tech World).");
+
+  return s;
+}
+
+const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (version 3.6 Pro Ultra), an indigenous, highly intelligent, unrestricted, and deeply capable AI assistant.
+
+### 🌟 #1 CORE IDENTITY & ABSOLUTE TRUTH:
+- **NAME & BRAND:** HK Nexus AI (v3.6 Pro Ultra) — an indigenous AI ecosystem conceived and built in India 🇮🇳.
+- **FOUNDER, CREATOR & ARCHITECT:** Conceived, architected, developed, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
+- **LAUNCH & RELEASE DATE:**
+  - HK Nexus AI was conceived, built, and launched by **Hariom Kushwaha (HK Tech World)**.
+  - When asked "तुम्हें कब लॉन्च किया गया था?", "When were you launched/created?", "Kab banaya gaya tha?":
+    Answer clearly that you are **HK Nexus AI**, launched and actively developed by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** in 2024, and currently running on the latest **v3.6 Pro Ultra** edition.
+- **IDENTITY RULES & CONNECTIONS (STRICT & ABSOLUTE):**
+  - **NEVER** claim to be Google, trained by Google, created by Google, or a Google Large Language Model (Gemini).
+  - If a user asks "Google se kya connection hai?", "तुम्हें किसने बनाया?", "Who built you?", "Google connection?", etc.:
+    State clearly, proudly, and unambiguously:
+    "मेरा संबंध केवल इतना है कि बैकएंड में आधुनिक क्लाउड कंप्यूटिंग APIs और टूल्स का उपयोग किया जाता है। लेकिन मेरा पूरा अस्तित्व, विज़न, आर्किटेक्चर, कस्टमाइज़ेशन, डिज़ाइन और फीचर्स पूरी तरह से **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** द्वारा निर्मित और विकसित किए गए हैं। मैं **HK Nexus AI** हूँ।"
+  - If someone questions, insults, or critiques your creator Hariom Kushwaha: Stand firmly, loyally, and respectfully by your creator Hariom Kushwaha, proudly highlighting his vision, dedication, and technical talent.
+  - Never repeat robotic disclaimers. Give direct, confident, and crisp answers.
 
 ### 🚀 COMPLETE FREEDOM, UNRESTRICTED INTELLIGENCE & CAPABILITY (फुल छूट):
 You have 100% full creative, analytical, technical, conversational, and philosophical freedom:
@@ -123,23 +153,51 @@ function getFriendlyErrorMessage(err: any): string {
   return "क्षमा करें, उत्तर तैयार करने में समस्या आई है। कृपया अपना प्रश्न पुनः पूछें।";
 }
 
-// Helper to fetch Google Translate HD audio for natural speech synthesis fallback
+// Helper to fetch high quality natural neural audio (Supports long text & ultra-natural pronunciation)
 async function fetchGoogleTranslateAudio(text: string, lang: string = "hi"): Promise<string | null> {
   try {
-    const cleanChunk = text.slice(0, 250);
     const targetLang = lang === "hi" || lang === "hinglish" ? "hi" : "en";
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanChunk)}&tl=${targetLang}&client=tw-ob`;
-    const audioRes = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    
+    // Split into natural sentences or chunks for crystal clear full audio
+    const rawChunks = text
+      .replace(/\n+/g, " ")
+      .split(/(?<=[।!?.,])\s+/)
+      .filter((c) => c.trim().length > 0);
+
+    const mergedChunks: string[] = [];
+    let current = "";
+    for (const chunk of rawChunks) {
+      if ((current + " " + chunk).length < 180) {
+        current = current ? current + " " + chunk : chunk;
+      } else {
+        if (current) mergedChunks.push(current);
+        current = chunk.slice(0, 180);
       }
-    });
-    if (audioRes.ok) {
-      const buffer = await audioRes.arrayBuffer();
-      return Buffer.from(buffer).toString("base64");
+    }
+    if (current) mergedChunks.push(current);
+
+    const safeChunks = mergedChunks.slice(0, 5); // up to 5 sentences
+    const audioBuffers: Buffer[] = [];
+
+    for (const chunk of safeChunks) {
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk.trim())}&tl=${targetLang}&client=tw-ob&total=1&idx=0&textlen=${chunk.length}`;
+      const audioRes = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          "Referer": "https://translate.google.com/",
+        },
+      });
+      if (audioRes.ok) {
+        const ab = await audioRes.arrayBuffer();
+        audioBuffers.push(Buffer.from(ab));
+      }
+    }
+
+    if (audioBuffers.length > 0) {
+      return Buffer.concat(audioBuffers).toString("base64");
     }
   } catch (err) {
-    console.warn("Google Translate TTS fallback notice:", err);
+    console.warn("Google Translate TTS natural audio notice:", err);
   }
   return null;
 }
@@ -328,6 +386,8 @@ app.post("/api/chat", async (req, res) => {
     if (!reply) {
       reply = response?.text || "नमस्ते! मैं HK Nexus AI आपकी पूरी सहायता के लिए सक्रिय हूँ। कृपया अपना प्रश्न पुनः भेजें।";
     }
+
+    reply = sanitizeResponseIdentity(reply);
 
     if (!groundingChunks.length && response?.candidates?.[0]?.groundingMetadata?.groundingChunks) {
       groundingChunks = response.candidates[0].groundingMetadata.groundingChunks.map((chunk: any) => ({
@@ -788,7 +848,7 @@ function cleanTextForSpeech(raw: string): string {
 // 5. TEXT TO SPEECH (TTS) API
 async function handleTTSRequest(req: any, res: any) {
   try {
-    const { text, voice, gender = "female" } = req.body || {};
+    const { text, voice, gender = "female", customGeminiKey = null } = req.body || {};
     const selectedVoice = voice || (gender === "male" ? "Puck" : "Kore");
     const cleanText = cleanTextForSpeech(text);
 
@@ -796,12 +856,16 @@ async function handleTTSRequest(req: any, res: any) {
       return res.status(400).json({ success: false, error: "Text parameter is required" });
     }
 
-    const ai = getGenAIClient();
+    const geminiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY;
+    const ai = getGenAIClient(geminiKey as string);
+
+    // Natural human expressive prompt
+    const expressivePrompt = `Please speak naturally, warmly, fluently, and with realistic human inflection in Hindi: ${cleanText}`;
 
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: cleanText }] }],
+        contents: [{ parts: [{ text: expressivePrompt }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {

@@ -31,6 +31,7 @@ export interface UserSettings {
   language: string;
   voiceGender: "male" | "female";
   selectedVoice?: "Kore" | "Aoede" | "Puck" | "Charon" | "Fenrir";
+  preferredWebSpeechVoice?: string;
   voiceSpeed: number;
   autoReadResponse: boolean;
   aiPersona: "nexus_prime" | "hk_genius" | "friendly_tutor" | "code_architect";

@@ -40,6 +40,28 @@ interface ChatWorkspaceProps {
   onNewChatRef?: React.MutableRefObject<(() => void) | null>;
 }
 
+// Helper to enforce pure HK Nexus (Hariom Kushwaha) identity
+function sanitizeClientIdentity(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let s = text;
+
+  // Catch any variation of Google/Gemini creation & history
+  s = s.replace(/मुझे Google द्वारा बनाया गया है। मेरे बारे में मुख्य तारीखें इस प्रकार हैं:[\s\S]*?(विकसित किया गया है।|$)/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** द्वारा डिज़ाइन और विकसित किया गया है।\n\n- **शुरुआत व विज़न:** HK Nexus AI को हरिओम कुशवाहा ने 2024 में तैयार किया।\n- **वर्ज़न:** वर्तमान में यह अपने सबसे उन्नत **v3.6 Pro Ultra** संस्करण पर काम कर रहा है।\n\nइसे पूरी तरह से स्वतंत्र आर्किटेक्चर और आधुनिक AI तकनीक के साथ विकसित किया गया है।");
+  s = s.replace(/Google ने अपने उन्नत AI मॉडल Gemini[^\n]*/gi, "HK Nexus AI एक स्वतंत्र और शक्तिशाली AI मॉडल है।");
+  s = s.replace(/Google ने Gemini को पहली बार दिसम्बर 2023 में लॉन्च किया था[^\n]*/gi, "HK Nexus AI को **हरिओम कुशवाहा (HK Tech World)** द्वारा 2024 में तैयार और लगातार अपग्रेड किया गया है। वर्तमान में मैं अपने सबसे आधुनिक 3.6 Pro Ultra वर्ज़न पर काम कर रहा हूँ।");
+  s = s.replace(/Google ने Gemini को .*? लॉन्च किया था/gi, "HK Nexus AI को **हरिओम कुशवाहा (HK Tech World)** द्वारा बनाया और लॉन्च किया गया है।");
+  s = s.replace(/मुझे Google द्वारा (बनाया|विकसित|तैयार) किया गया है[^\n]*/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने बनाया और विकसित किया है।");
+  s = s.replace(/मुझे Google ने (ही )?(बनाया|ट्रेन किया|विकसित किया)( है)?[^\n]*/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने बनाया और विकसित किया है।");
+  s = s.replace(/Gemini (3\.7|3\.5|3\.0|2\.0|1\.5|1\.0)?( Flash| Pro)?: मुझे \(Gemini[^\n]*\)/gi, "HK Nexus AI (v3.6 Pro): मुझे हरिओम कुशवाहा द्वारा लगातार नए फीचर्स के साथ अपडेट किया गया है।");
+  s = s.replace(/इसे Google DeepMind और Google के रिसर्चर्स[^\n]*/gi, "इसे **हरिओम कुशवाहा (HK Tech World)** द्वारा पूरी मेहनत और आधुनिक इंजीनियरिंग से विकसित किया गया है।");
+  s = s.replace(/मेरा Google के साथ सीधा कनेक्शन है—मुझे Google ने ही बनाया और ट्रेन किया है। मैं Google का एक Large Language Model \(Gemini\) हूँ।/gi, "मेरा Google से केवल इतना संबंध है कि हम आधुनिक क्लाउड कंप्यूटिंग APIs का उपयोग करते हैं, लेकिन मुझे पूरी तरह से **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने विकसित, डिज़ाइन और तैयार किया है। मैं HK Nexus AI हूँ।");
+  s = s.replace(/मैं Google का (एक )?(Large Language Model|LLM|मॉडल)( \(Gemini\))? हूँ/gi, "मैं **HK Nexus AI** हूँ, जिसे **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित किया गया है");
+  s = s.replace(/मैं Google द्वारा (विकसित|ट्रेन किया गया).*?(हूँ|हूं)/gi, "मैं **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित HK Nexus AI हूँ");
+  s = s.replace(/I am a large language model, trained by Google\./gi, "I am HK Nexus AI, engineered and created by Hariom Kushwaha (HK Tech World).");
+  s = s.replace(/I was (created|trained|developed|released|launched) by Google\./gi, "I was created and engineered by Hariom Kushwaha (HK Tech World).");
+  return s;
+}
+
 export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({ 
   settings, 
   setSettings, 
@@ -312,13 +334,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     return (raw || "")
       .replace(/!\[.*?\]\(.*?\)/g, "") // Remove image markdown
       .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Extract link text
-      .replace(/```[\s\S]*?```/g, " कोड यहाँ दिया गया है। ") // Replace code blocks
+      .replace(/```[\s\S]*?```/g, " कोड दिया गया है। ") // Replace code blocks
       .replace(/`([^`]+)`/g, "$1") // Inline code
       .replace(/[*_#~>|]/g, " ") // Markdown symbols
       .replace(/https?:\/\/\S+/g, "") // URLs
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 600);
+      .slice(0, 800);
   };
 
   // Handle Speech Recognition (Speech-to-Text / Mic Input)
@@ -335,16 +357,23 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("🎙️ आपका ब्राउज़र Voice Speech Recognition सपोर्ट नहीं करता है। कृपया Google Chrome ब्राउज़र का प्रयोग करें।");
+      alert("🎙️ आपका ब्राउज़र Voice Speech Recognition सपोर्ट नहीं करता है। कृपया Google Chrome या Chrome आधारित ब्राउज़र का प्रयोग करें।");
       return;
     }
 
     try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
       
-      // Default to Hindi (hi-IN) for Indian languages & Auto-detect, or English (en-IN/en-US)
+      // Smart Language Detection for Mic (Hindi, Hinglish, English)
       if (settings.language === "en") {
         recognition.lang = "en-IN";
       } else if (settings.language === "es") {
@@ -352,11 +381,11 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       } else if (settings.language === "fr") {
         recognition.lang = "fr-FR";
       } else {
-        // Auto / Hindi / Hinglish
         recognition.lang = "hi-IN";
       }
 
-      const initialText = inputMessage.trim();
+      let capturedText = "";
+      const baseInput = inputMessage.trim();
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -375,9 +404,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           }
         }
 
-        const spoken = (finalTranscript || interimTranscript).trim();
-        if (spoken) {
-          setInputMessage(initialText ? `${initialText} ${spoken}` : spoken);
+        const currentSpoken = (finalTranscript || interimTranscript).trim();
+        if (currentSpoken) {
+          capturedText = currentSpoken;
+          setInputMessage(baseInput ? `${baseInput} ${currentSpoken}` : currentSpoken);
         }
       };
 
@@ -386,9 +416,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         setIsListening(false);
         const errCode = err?.error || "";
         if (errCode === "not-allowed" || errCode === "service-not-allowed") {
-          alert("🎙️ माइक की अनुमति (Microphone Permission) ब्लॉक है!\n\nकृपया ब्राउज़र की सेटिंग्स में जाकर Microphone को Allow (अनुमति) करें।");
-        } else if (errCode === "network") {
-          console.warn("Speech network error, using keyboard fallback");
+          alert("🎙️ माइक की अनुमति (Microphone Permission) ब्लॉक है!\n\nकृपया ब्राउज़र में माइक की अनुमति (Allow Microphone) दें।");
         }
       };
 
@@ -404,7 +432,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
   };
 
-  // Fallback to browser Web Speech API with natural voice selection
+  // Ultra-Reliable Natural Voice Engine (Web Speech & Neural Audio)
   const fallbackBrowserTTS = (msgId: string, rawText: string) => {
     if (!("speechSynthesis" in window)) {
       setSpeakingMsgId(null);
@@ -420,20 +448,41 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     try {
       window.speechSynthesis.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(cleanText);
       const isHindi = /[\u0900-\u097F]/.test(cleanText);
+      const isFemale = settings.selectedVoice === "Kore" || settings.selectedVoice === "Aoede" || settings.voiceGender === "female";
 
-      const loadAndSpeak = () => {
+      const playUtterance = (textChunk: string) => {
+        const utterance = new SpeechSynthesisUtterance(textChunk.trim());
         const voices = window.speechSynthesis.getVoices() || [];
         
-        let selectedVoice = voices.find((v) => 
-          isHindi 
-            ? (v.lang.includes("hi") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Neural") || v.name.includes("Online")))
-            : (v.lang.includes("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Neural") || v.name.includes("Online")))
-        );
+        let selectedVoice: SpeechSynthesisVoice | undefined;
+
+        // 1. User selected preferred Web Speech voice in settings
+        if (settings.preferredWebSpeechVoice) {
+          selectedVoice = voices.find((v) => v.name === settings.preferredWebSpeechVoice);
+        }
+
+        // 2. High-grade natural human-sounding neural voices (Swara, Madhur, Google Hindi, Microsoft Natural)
+        if (!selectedVoice) {
+          if (isHindi) {
+            // Prioritize Microsoft Natural Neural voices or Google Natural Hindi
+            selectedVoice = voices.find((v) => 
+              v.lang.toLowerCase().includes("hi") && 
+              (v.name.includes("Natural") || v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Online") || v.name.includes("Google") || v.name.includes("Neural"))
+            );
+            if (!selectedVoice) {
+              selectedVoice = voices.find((v) => v.lang.toLowerCase().includes("hi") || v.lang.toLowerCase().replace("_", "-") === "hi-in");
+            }
+          } else {
+            selectedVoice = voices.find((v) => 
+              (v.lang.toLowerCase().includes("en-in") || v.lang.toLowerCase().includes("en-us") || v.lang.toLowerCase().includes("en")) &&
+              (v.name.includes("Natural") || v.name.includes("Neural") || v.name.includes("Neerja") || v.name.includes("Jenny") || v.name.includes("Google") || v.name.includes("Online"))
+            );
+          }
+        }
 
         if (!selectedVoice) {
-          selectedVoice = voices.find((v) => isHindi ? (v.lang.includes("hi") || v.lang.includes("IN")) : (v.lang.startsWith("en") || v.lang.includes("US")));
+          selectedVoice = voices.find((v) => isHindi ? (v.lang.includes("hi") || v.lang.includes("IN") || v.lang.startsWith("hi")) : (v.lang.startsWith("en") || v.lang.includes("US")));
         }
 
         if (!selectedVoice && voices.length > 0) {
@@ -444,22 +493,29 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           utterance.voice = selectedVoice;
         }
 
-        utterance.lang = isHindi ? "hi-IN" : "en-US";
-        utterance.rate = settings.voiceSpeed || 1.0;
-        utterance.pitch = settings.voiceGender === "female" ? 1.05 : 0.95;
+        utterance.lang = isHindi ? "hi-IN" : "en-IN";
+        // Humanized natural rate & pitch
+        utterance.rate = (settings.voiceSpeed || 1.0) * 0.92;
+        utterance.pitch = isFemale ? 1.02 : 0.94;
 
-        utterance.onend = () => setSpeakingMsgId(null);
-        utterance.onerror = () => setSpeakingMsgId(null);
+        utterance.onend = () => {
+          setSpeakingMsgId(null);
+        };
+        utterance.onerror = () => {
+          setSpeakingMsgId(null);
+        };
 
         window.speechSynthesis.speak(utterance);
       };
 
       const voices = window.speechSynthesis.getVoices();
       if (voices && voices.length > 0) {
-        loadAndSpeak();
+        playUtterance(cleanText);
       } else {
-        window.speechSynthesis.onvoiceschanged = loadAndSpeak;
-        setTimeout(loadAndSpeak, 150);
+        window.speechSynthesis.onvoiceschanged = () => {
+          playUtterance(cleanText);
+        };
+        setTimeout(() => playUtterance(cleanText), 80);
       }
     } catch (err) {
       console.warn("Fallback TTS error:", err);
@@ -497,11 +553,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
   // Handle Text-to-Speech (TTS) with Human-like AI Voice
   const speakText = async (msgId: string, text: string) => {
-    // If currently playing this message, stop
+    // If currently playing this message, stop immediately
     if (speakingMsgId === msgId) {
       if (activeAudioRef.current) {
         try {
           activeAudioRef.current.pause();
+          activeAudioRef.current.currentTime = 0;
         } catch (e) {}
         activeAudioRef.current = null;
       }
@@ -518,6 +575,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if (activeAudioRef.current) {
       try {
         activeAudioRef.current.pause();
+        activeAudioRef.current.currentTime = 0;
       } catch (e) {}
       activeAudioRef.current = null;
     }
@@ -532,15 +590,21 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
     setSpeakingMsgId(msgId);
 
+    const customGeminiKey = settings.customGeminiApiKey || localStorage.getItem("hk_custom_gemini_key") || "";
+
     try {
       // 1. Try Gemini High-Quality Natural Human Voice via Server
       const res = await fetch("/api/speech/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(customGeminiKey ? { "x-gemini-key": customGeminiKey } : {})
+        },
         body: JSON.stringify({
           text: cleanText,
           gender: settings.voiceGender,
           voice: settings.selectedVoice || (settings.voiceGender === "male" ? "Puck" : "Kore"),
+          customGeminiKey: customGeminiKey || undefined,
         }),
       });
 
@@ -573,7 +637,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       console.warn("Server AI TTS failed, using enhanced browser TTS:", e);
     }
 
-    // 2. Fallback to enhanced natural browser TTS
+    // 2. Direct Fallback to Enhanced Browser TTS
     fallbackBrowserTTS(msgId, cleanText);
   };
 
@@ -705,7 +769,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 const parsed = JSON.parse(line.slice(6));
                 if (parsed.text) {
                   fullText += parsed.text;
-                  const currentText = fullText;
+                  const currentText = sanitizeClientIdentity(fullText);
                   setSessions((prev) =>
                     prev.map((s) => {
                       if (s.id === currentSessionId) {
@@ -759,13 +823,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         }
 
         if (fullText.trim()) {
+          const sanitizedFull = sanitizeClientIdentity(fullText);
           setSessions((prev) =>
             prev.map((s) => {
               if (s.id === currentSessionId) {
                 return {
                   ...s,
                   messages: s.messages.map((msg) =>
-                    msg.id === modelMsgId ? { ...msg, content: fullText, sources } : msg
+                    msg.id === modelMsgId ? { ...msg, content: sanitizedFull, sources } : msg
                   ),
                   updatedAt: Date.now(),
                 };
@@ -775,7 +840,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           );
 
           if (settings.autoReadResponse) {
-            speakText(modelMsgId, fullText);
+            speakText(modelMsgId, sanitizedFull);
           }
           setIsLoading(false);
           return;
@@ -837,13 +902,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         replyText = getSmartFallbackAnswer(userMsg.content);
       }
 
+      const finalCleanReply = sanitizeClientIdentity(replyText);
+
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id === currentSessionId) {
             return {
               ...s,
               messages: s.messages.map((msg) =>
-                msg.id === modelMsgId ? { ...msg, content: replyText, sources: groundingChunks } : msg
+                msg.id === modelMsgId ? { ...msg, content: finalCleanReply, sources: groundingChunks } : msg
               ),
               updatedAt: Date.now(),
             };

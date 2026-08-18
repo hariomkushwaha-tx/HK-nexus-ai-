@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserSettings } from "../types";
 import { 
   X, 
@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Radio
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -87,16 +88,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [testingVoiceId, setTestingVoiceId] = useState<string | null>(null);
   const [testAudio, setTestAudio] = useState<HTMLAudioElement | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Load available Web Speech API voices
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+
+    const updateVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices() || [];
+      const sorted = [...allVoices].sort((a, b) => {
+        const aScore = (a.lang.includes("hi") || a.lang.includes("IN") ? 100 : 0) +
+                       (a.name.includes("Google") || a.name.includes("Natural") || a.name.includes("Neural") || a.name.includes("Online") || a.name.includes("Swara") ? 50 : 0);
+        const bScore = (b.lang.includes("hi") || b.lang.includes("IN") ? 100 : 0) +
+                       (b.name.includes("Google") || b.name.includes("Natural") || b.name.includes("Neural") || b.name.includes("Online") || b.name.includes("Swara") ? 50 : 0);
+        return bScore - aScore;
+      });
+      setAvailableVoices(sorted);
+    };
+
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+
+    return () => {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
 
   if (!isOpen) return null;
 
   const handleTestVoice = async (voiceId: string) => {
+    // 1. Stop any currently playing audio
     if (testAudio) {
       try {
         testAudio.pause();
+        testAudio.currentTime = 0;
       } catch (e) {}
       setTestAudio(null);
     }
+    if ("speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+
     if (testingVoiceId === voiceId) {
       setTestingVoiceId(null);
       return;
@@ -104,14 +140,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     setTestingVoiceId(voiceId);
 
+    const isFemale = voiceId === "Kore" || voiceId === "Aoede";
+    const sampleText = isFemale
+      ? "नमस्ते! मैं HK Nexus AI हूँ। यह मेरी नेचुरल महिला आवाज़ है।"
+      : "नमस्ते! मैं HK Nexus AI हूँ। यह मेरी नेचुरल पुरुष आवाज़ है।";
+
+    // Play fallback Web Speech API directly if server audio fails
+    const playFallbackUtterance = () => {
+      if (!("speechSynthesis" in window)) {
+        setTestingVoiceId(null);
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(sampleText);
+        const voices = window.speechSynthesis.getVoices() || [];
+        
+        let match = voices.find(
+          (v) =>
+            v.lang.includes("hi") &&
+            (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Neural") || v.name.includes("Online") || v.name.includes("Swara") || v.name.includes("Madhur"))
+        );
+        if (!match) {
+          match = voices.find((v) => v.lang.includes("hi") || v.lang.includes("IN"));
+        }
+        if (!match && voices.length > 0) {
+          match = voices[0];
+        }
+
+        if (match) utterance.voice = match;
+        utterance.lang = "hi-IN";
+        utterance.pitch = isFemale ? 1.08 : 0.88;
+        utterance.rate = (settings.voiceSpeed || 1.0) * 0.95;
+
+        utterance.onend = () => setTestingVoiceId(null);
+        utterance.onerror = () => setTestingVoiceId(null);
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("SpeechSynthesis error:", err);
+        setTestingVoiceId(null);
+      }
+    };
+
+    const customGeminiKey = settings.customGeminiApiKey || localStorage.getItem("hk_custom_gemini_key") || "";
+
     try {
       const res = await fetch("/api/speech/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(customGeminiKey ? { "x-gemini-key": customGeminiKey } : {})
+        },
         body: JSON.stringify({
-          text: "नमस्ते! मैं HK Nexus AI हूँ। यह मेरी नेचुरल इंसानी आवाज़ है।",
+          text: sampleText,
           voice: voiceId,
-          gender: voiceId === "Kore" || voiceId === "Aoede" ? "female" : "male",
+          gender: isFemale ? "female" : "male",
+          customGeminiKey: customGeminiKey || undefined,
         }),
       });
 
@@ -127,36 +211,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             setTestAudio(null);
           };
           audio.onerror = () => {
-            setTestingVoiceId(null);
-            setTestAudio(null);
+            playFallbackUtterance();
           };
 
           try {
             await audio.play();
             return;
           } catch (playErr) {
-            console.warn("Direct audio play blocked, fallback to browser voice:", playErr);
+            console.warn("Direct audio play prevented by mobile browser, using Web Speech API:", playErr);
+            playFallbackUtterance();
+            return;
           }
         }
       }
 
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance("नमस्ते! मैं HK Nexus AI हूँ। यह मेरी नेचुरल इंसानी आवाज़ है।");
-        const voices = window.speechSynthesis.getVoices() || [];
-        const isFemale = voiceId === "Kore" || voiceId === "Aoede";
-        const match = voices.find(v => v.lang.includes("hi") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Online"))) || voices.find(v => v.lang.includes("hi")) || voices[0];
-        if (match) utterance.voice = match;
-        utterance.pitch = isFemale ? 1.05 : 0.95;
-        utterance.rate = settings.voiceSpeed || 1.0;
-        utterance.onend = () => setTestingVoiceId(null);
-        utterance.onerror = () => setTestingVoiceId(null);
-        window.speechSynthesis.speak(utterance);
-      } else {
-        setTestingVoiceId(null);
-      }
+      playFallbackUtterance();
     } catch (e) {
-      console.error("Test voice failed:", e);
+      console.warn("Server voice test error, using browser TTS:", e);
+      playFallbackUtterance();
+    }
+  };
+
+  // Live test for dropdown Web Speech voice selection
+  const handleTestWebSpeechVoice = (voiceName: string) => {
+    if (!("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      setTestingVoiceId(`web-${voiceName}`);
+      const voiceObj = availableVoices.find(v => v.name === voiceName);
+      const isHindi = voiceObj ? (voiceObj.lang.includes("hi") || /[\u0900-\u097F]/.test(voiceObj.name)) : true;
+      const text = isHindi
+        ? "नमस्ते! यह नेचुरल वॉइस सिंथेसाइज़र टेस्ट है। मैं आपकी पूरी सहायता के लिए तैयार हूँ।"
+        : "Hello! This is a high-quality natural voice synthesis test. I am ready to assist you.";
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (voiceObj) {
+        utterance.voice = voiceObj;
+        utterance.lang = voiceObj.lang;
+      }
+      utterance.rate = (settings.voiceSpeed || 1.0) * 0.95;
+      utterance.onend = () => setTestingVoiceId(null);
+      utterance.onerror = () => setTestingVoiceId(null);
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
       setTestingVoiceId(null);
     }
   };
@@ -170,6 +267,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const selectedVoice = settings.selectedVoice || (settings.voiceGender === "male" ? "Puck" : "Kore");
+
+  // Filter high quality natural voices for dropdown
+  const naturalVoices = availableVoices.filter(v => 
+    v.lang.includes("hi") || 
+    v.lang.includes("IN") || 
+    v.name.includes("Natural") || 
+    v.name.includes("Google") || 
+    v.name.includes("Neural") || 
+    v.name.includes("Online") ||
+    v.name.includes("Wavenet")
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
@@ -317,11 +425,81 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 2: Voice & Sound */}
           {activeTab === "voice" && (
             <div className="space-y-4">
+              {/* Web Speech API Natural Voice Dropdown (Google Wavenet / Edge Neural) */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center space-x-2">
+                    <Radio className="w-4 h-4 text-cyan-400" />
+                    <span>नेचुरल वॉइस सेलेक्टर (Natural Wavenet & Neural Engine)</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-800 font-mono">
+                    Web Speech
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  ब्राउज़र/डिवाइस के Google Wavenet, Edge Neural या उपलब्ध हाई-क्वालिटी नेचुरल वॉइस में से चुनें:
+                </p>
+
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={settings.preferredWebSpeechVoice || ""}
+                    onChange={(e) => setSettings((s) => ({ ...s, preferredWebSpeechVoice: e.target.value || undefined }))}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  >
+                    <option value="">✨ ऑटो-डिटेक्ट बेस्ट नेचुरल आवाज़ (Recommended)</option>
+                    {naturalVoices.length > 0 ? (
+                      <optgroup label="🌟 हाई क्वालिटी नेचुरल आवाज़ें (Google / Neural / Hindi)">
+                        {naturalVoices.map((v) => (
+                          <option key={v.name} value={v.name}>
+                            {v.name} ({v.lang})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {availableVoices.length > 0 && (
+                      <optgroup label="🌐 सभी उपलब्ध सिस्टम आवाज़ें">
+                        {availableVoices.map((v) => (
+                          <option key={v.name} value={v.name}>
+                            {v.name} ({v.lang})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const voiceToTest = settings.preferredWebSpeechVoice || (naturalVoices[0]?.name || availableVoices[0]?.name || "");
+                      if (voiceToTest) handleTestWebSpeechVoice(voiceToTest);
+                    }}
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 border transition-all shrink-0 ${
+                      testingVoiceId?.startsWith("web-")
+                        ? "bg-emerald-500 text-white border-emerald-400 animate-pulse"
+                        : "bg-cyan-950 text-cyan-400 border-cyan-800 hover:bg-cyan-900 hover:text-white"
+                    }`}
+                  >
+                    {testingVoiceId?.startsWith("web-") ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>सुन रहे हैं...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>टेस्ट करें</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Studio Voice Profiles */}
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-white flex items-center space-x-2">
                     <Volume2 className="w-4 h-4 text-emerald-400" />
-                    <span>नेचुरल इंसानी आवाज़ें (Human Studio Voices)</span>
+                    <span>स्टूडियो टोन प्रोफाइल (Studio Tone Profiles)</span>
                   </span>
                   <span className="text-[10px] bg-cyan-950 text-cyan-400 px-2.5 py-0.5 rounded-full border border-cyan-800 font-mono">
                     HD Audio

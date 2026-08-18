@@ -60,17 +60,18 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: "Text is required" });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const customKey = body.customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-    // 1. Try Gemini Audio Modality (High Definition AI Voice)
-    if (apiKey) {
+    // 1. Try Gemini Audio Modality (High Definition Human AI Voice)
+    if (customKey) {
       try {
-        const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
+        const ai = new GoogleGenAI({ apiKey: String(customKey).trim() });
         const selectedVoice = voice || (gender === "male" ? "Puck" : "Kore");
+        const expressivePrompt = `Please speak naturally, warmly, fluently, and with realistic human inflection in Hindi: ${cleanText}`;
 
         const response = await ai.models.generateContent({
           model: "gemini-3.1-flash-tts-preview",
-          contents: [{ parts: [{ text: cleanText }] }],
+          contents: [{ parts: [{ text: expressivePrompt }] }],
           config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {
