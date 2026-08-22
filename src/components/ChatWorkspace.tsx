@@ -878,7 +878,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               messages: [
                 {
                   role: "system",
-                  content: `You are HK Nexus AI, an ultra-intelligent, helpful, and insightful AI created by Hariom Kushwaha (HK Tech World). Answer directly, smartly, and accurately like ChatGPT in conversational ${settings.language === "hi" ? "Hindi" : "Hinglish/English"}. Never show capability menu lists unless asked.`,
+                  content: `You are HK Nexus AI, a natural, witty, helpful, and insightful AI created by Hariom Kushwaha (HK Tech World). Keep greetings and small talk super short and friendly like a real companion (e.g. "Hello! How can I help you today?" or "नमस्ते भाई! कैसे हो?"). NEVER give capability menus or long speeches on simple greetings. Match user language (${settings.language === "hi" ? "Hindi" : "Hinglish/English"}).`,
                 },
                 ...currentSession.messages.slice(-8).map((m) => ({
                   role: m.role === "user" ? "user" : "assistant",
