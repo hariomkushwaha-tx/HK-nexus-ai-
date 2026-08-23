@@ -243,15 +243,20 @@ You have 100% full creative, analytical, technical, conversational, and philosop
         let lastError: any = null;
 
         for (const modelToTry of modelList) {
+          // First attempt: with googleSearch if live search query, or standard config
           try {
+            const config: any = {
+              systemInstruction: sysInstruction,
+              temperature: 0.7,
+            };
+            if (isLiveSearchQuery) {
+              config.tools = [{ googleSearch: {} }];
+            }
+
             const response = await ai.models.generateContent({
               model: modelToTry,
               contents,
-              config: {
-                systemInstruction: sysInstruction,
-                temperature: 0.7,
-                tools: [{ googleSearch: {} }],
-              },
+              config,
             });
 
             const reply = response.text;
@@ -271,7 +276,31 @@ You have 100% full creative, analytical, technical, conversational, and philosop
             }
           } catch (modelErr: any) {
             lastError = modelErr;
-            console.warn(`Model ${modelToTry} attempt failed:`, modelErr?.message);
+            console.warn(`Model ${modelToTry} attempt with search failed:`, modelErr?.message);
+
+            // Fallback attempt without tools if search caused an issue
+            try {
+              const fallbackResponse = await ai.models.generateContent({
+                model: modelToTry,
+                contents,
+                config: {
+                  systemInstruction: sysInstruction,
+                  temperature: 0.7,
+                },
+              });
+              const fbReply = fallbackResponse.text;
+              if (fbReply && fbReply.trim()) {
+                return res.status(200).json({
+                  success: true,
+                  reply: sanitizeResponseIdentity(fbReply.trim()),
+                  groundingChunks: [],
+                  provider: `Gemini AI (${modelToTry})`,
+                  creator: "Hariom Kushwaha (HK Tech World)",
+                });
+              }
+            } catch (noToolErr: any) {
+              console.warn(`Model ${modelToTry} without tools failed:`, noToolErr?.message);
+            }
           }
         }
       } catch (geminiErr: any) {

@@ -301,32 +301,15 @@ app.post("/api/chat", async (req, res) => {
     let reply = "";
     let groundingChunks: any[] = [];
 
-    // 1. Try Gemini Primary with Live Google Search Grounding
-    try {
-      response = await ai.models.generateContent({
-        model: modelName,
-        contents,
-        config: {
-          systemInstruction: sysInstruction,
-          temperature: 0.7,
-          tools: [{ googleSearch: {} }],
-        },
-      });
-      reply = response.text || "";
-      if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-        groundingChunks = response.candidates[0].groundingMetadata.groundingChunks.map((chunk: any) => ({
-          title: chunk.web?.title || "Web Reference",
-          uri: chunk.web?.uri || "#",
-        }));
-      }
-    } catch (primaryErr: any) {
-      console.warn("Primary Gemini call with search failed, trying backup Gemini models:", primaryErr?.message);
-      
-      const backupGeminiModels = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
-      for (const backupModel of backupGeminiModels) {
+    // 1. Try Gemini with Smart Search (and fallback without tools)
+    const geminiModelsToTry = [modelName, "gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+    for (const modelToTry of geminiModelsToTry) {
+      if (reply) break;
+      // Attempt with search if it's a live search query
+      if (isLiveSearchQuery) {
         try {
           response = await ai.models.generateContent({
-            model: backupModel,
+            model: modelToTry,
             contents,
             config: {
               systemInstruction: sysInstruction,
@@ -344,9 +327,25 @@ app.post("/api/chat", async (req, res) => {
             }
             break;
           }
-        } catch (bkErr: any) {
-          console.warn(`Backup model ${backupModel} error:`, bkErr?.message);
+        } catch (searchErr: any) {
+          console.warn(`Gemini search attempt on ${modelToTry} failed:`, searchErr?.message);
         }
+      }
+
+      // Attempt standard generation without tools
+      try {
+        response = await ai.models.generateContent({
+          model: modelToTry,
+          contents,
+          config: {
+            systemInstruction: sysInstruction,
+            temperature: 0.7,
+          },
+        });
+        reply = response.text || "";
+        if (reply) break;
+      } catch (noToolErr: any) {
+        console.warn(`Gemini generation on ${modelToTry} failed:`, noToolErr?.message);
       }
     }
 
