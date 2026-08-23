@@ -46,6 +46,8 @@ export default async function handler(req: any, res: any) {
       image = null,
       customGroqKey = null,
       customGeminiKey = null,
+      clientDate = null,
+      clientTime = null,
     } = req.body || {};
 
     if (!message || typeof message !== "string") {
@@ -55,22 +57,41 @@ export default async function handler(req: any, res: any) {
     const apiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     const groqKey = customGroqKey || req.headers["x-groq-key"] || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
 
-    // Build context
+    // Accurate Indian Standard Time (IST) Context
     const now = new Date();
-    const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-    const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const istDateString = clientDate || now.toLocaleDateString("hi-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const istTimeString = clientTime || now.toLocaleTimeString("hi-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const enDateString = now.toLocaleDateString("en-US", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
     const sysInstruction = `You are HK Nexus AI (v3.6 Pro Ultra), an indigenous, highly intelligent, unrestricted, and deeply capable AI assistant.
 
-### 🌟 #1 CORE IDENTITY & ABSOLUTE TRUTH:
-- **NAME & BRAND:** HK Nexus AI — an indigenous AI ecosystem conceived and built in India 🇮🇳.
-- **FOUNDER, CREATOR & ARCHITECT:** Conceived, architected, developed, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
-- **IDENTITY RULES & CONNECTIONS:**
-  - If a user asks who created you, who built you, or "तुम्हें किसने बनाया?": Answer proudly and clearly that you are created and engineered by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
-  - If asked about connections to Google, OpenAI, Microsoft etc.: Clarify that you are **HK Nexus AI**, developed by **Hariom Kushwaha (HK Tech World)**. You only utilize high-speed cloud infrastructure/APIs, while your soul, ecosystem, design, logic, and features belong 100% to **Hariom Kushwaha (HK Tech World)**.
-  - If someone questions or critiques your creator Hariom Kushwaha: Stand firmly, loyally, and respectfully by your creator Hariom Kushwaha with poise and confidence.
-  - Never give canned repetitive robotic disclaimers.
+### 🌟 #1 CORE IDENTITY & CREATOR:
+- **CREATOR & ARCHITECT:** Conceived, architected, developed, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India 🇮🇳).
+- **IDENTITY RULES:**
+  - When asked who created you, who made you, or about your founder / "तुम्हें किसने बनाया?": Proudly and clearly state that you are created and engineered by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
+  - For simple greetings (like "Hi", "Hello", "Hey", "नमस्ते", "हलो"): Keep your response SHORT, WARM, and NATURAL (1-2 sentences max, e.g. "नमस्ते भाई! कैसे हैं आप? बताइए आज मैं आपकी क्या सहायता करूँ?"). DO NOT dump long founder essays or biographies on casual greetings unless the user explicitly asks "Who are you?" or "Who created you?".
+
+### 📅 LIVE REAL-TIME DATE & TIME (INDIAN STANDARD TIME - IST):
+- **Today's Live Date in India (IST):** ${istDateString} (${enDateString})
+- **Current Live Time (IST):** ${istTimeString}
+- **REAL-TIME RULE:** When asked "आज क्या है", "आज कितनी तारीख है", "आज कौन सा दिन है", "today's date", "time", or any query regarding the current date/day: ALWAYS give this EXACT live date and day (${istDateString}). Never guess or hallucinate any other past/future dates.
 
 ### 🚀 COMPLETE FREEDOM & CAPABILITY (फुल छूट):
 You have 100% full creative, analytical, technical, conversational, and philosophical freedom:
@@ -85,8 +106,76 @@ You have 100% full creative, analytical, technical, conversational, and philosop
 
 - Respond naturally in ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
 
-    // 1. Try Groq (Llama-3.3 70B - Lightning Fast)
-    if (groqKey) {
+    // Check if query needs live real-time web search or current information
+    const isLiveSearchQuery = /आज|लाइव|live|news|current|weather|मौसम|तापमान|स्कोर|score|match|cricket|price|रेट|भाव|ताज़ा|taza|latest|recent|हाल ही में|खबर|search|गूगल|सर्च|खोजो|stock|सोना|चांदी|dollar|rupee/i.test(message);
+
+    // 1. If query requires LIVE Real-time data and Gemini API key is available, run Gemini with Google Search Grounding first!
+    if (isLiveSearchQuery && apiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
+        const contents: any[] = [];
+
+        if (memory && Array.isArray(history)) {
+          for (const msg of history.slice(-6)) {
+            if (msg.content) {
+              contents.push({
+                role: msg.role === "user" ? "user" : "model",
+                parts: [{ text: msg.content }],
+              });
+            }
+          }
+        }
+
+        const currentParts: any[] = [];
+        if (image && typeof image === "string" && image.includes("base64,")) {
+          const mimeType = image.substring(image.indexOf(":") + 1, image.indexOf(";"));
+          const base64Data = image.split(",")[1];
+          currentParts.push({
+            inlineData: { mimeType: mimeType || "image/jpeg", data: base64Data },
+          });
+        }
+        currentParts.push({ text: message });
+        contents.push({ role: "user", parts: currentParts });
+
+        const searchModels = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        for (const modelToTry of searchModels) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelToTry,
+              contents,
+              config: {
+                systemInstruction: sysInstruction,
+                temperature: 0.7,
+                tools: [{ googleSearch: {} }],
+              },
+            });
+
+            const reply = response.text;
+            if (reply && reply.trim()) {
+              const groundingChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []).map((c: any) => ({
+                title: c.web?.title || "Web Reference",
+                uri: c.web?.uri || "#",
+              }));
+
+              return res.status(200).json({
+                success: true,
+                reply: sanitizeResponseIdentity(reply.trim()),
+                groundingChunks,
+                provider: `Gemini AI Live Search (${modelToTry})`,
+                creator: "Hariom Kushwaha (HK Tech World)",
+              });
+            }
+          } catch (err: any) {
+            console.warn(`Search grounding model ${modelToTry} attempt failed:`, err?.message);
+          }
+        }
+      } catch (err: any) {
+        console.warn("Live Search with Gemini failed, trying standard flow:", err?.message);
+      }
+    }
+
+    // 2. Try Groq (Llama-3.3 70B - Lightning Fast for general conversations)
+    if (groqKey && !isLiveSearchQuery) {
       try {
         const groq = new Groq({ apiKey: String(groqKey).trim() });
         const messages: any[] = [{ role: "system", content: sysInstruction }];
@@ -122,7 +211,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
       }
     }
 
-    // 2. Try Gemini (Gemini 3.7 Flash & 3.1 Pro)
+    // 3. Try Gemini with Google Search Grounding for all queries
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
@@ -161,14 +250,21 @@ You have 100% full creative, analytical, technical, conversational, and philosop
               config: {
                 systemInstruction: sysInstruction,
                 temperature: 0.7,
+                tools: [{ googleSearch: {} }],
               },
             });
 
             const reply = response.text;
             if (reply && reply.trim()) {
+              const groundingChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []).map((c: any) => ({
+                title: c.web?.title || "Web Reference",
+                uri: c.web?.uri || "#",
+              }));
+
               return res.status(200).json({
                 success: true,
                 reply: sanitizeResponseIdentity(reply.trim()),
+                groundingChunks,
                 provider: `Gemini AI (${modelToTry})`,
                 creator: "Hariom Kushwaha (HK Tech World)",
               });

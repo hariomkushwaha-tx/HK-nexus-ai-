@@ -527,18 +527,28 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const getSmartFallbackAnswer = (query: string): string => {
     const q = query.trim().toLowerCase();
     const now = new Date();
-    const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-    const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const dateStr = now.toLocaleDateString("hi-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const timeStr = now.toLocaleTimeString("hi-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
 
-    if (/^(hi|hello|hey|नमस्ते|प्रणाम|नमस्कार)$/i.test(q)) {
-      return `सब एकदम बढ़िया भाई! आप बताओ, आज क्या नया चल रहा है?`;
+    if (/^(hi|hello|hey|हलो|नमस्ते|प्रणाम|नमस्कार|hello\s+hk)$/i.test(q)) {
+      return `नमस्ते भाई! कैसे हैं आप? बताइए आज आपकी क्या सहायता करूँ?`;
     }
     if (/और बताओ|और क्या|कैसे हो|क्या हाल|how are you/i.test(q)) {
       return `सब एकदम मस्त भाई! आप बताइए, आपका क्या हाल-चाल है?`;
     }
-    if (/आज क्या है|आज की तारीख|आज का दिन|today.*date|time.*now/i.test(q)) {
-      return `आज ${dateStr} है और समय लगभग ${timeStr} हो रहा है।`;
+    if (/आज क्या है|आज की तारीख|कितनी तारीख|कौन सा दिन|आज का दिन|today.*date|what.*date|time.*now/i.test(q)) {
+      return `आज **${dateStr}** है और समय **${timeStr}** हो रहा है।`;
     }
     if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(q)) {
       return `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`;
@@ -730,6 +740,19 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       customGroqKey: customGroqKey || undefined,
       customGeminiKey: customGeminiKey || undefined,
       preferredEngine,
+      clientDate: new Date().toLocaleDateString("hi-IN", {
+        timeZone: "Asia/Kolkata",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      clientTime: new Date().toLocaleTimeString("hi-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
     };
 
     const commonHeaders: Record<string, string> = {
@@ -867,6 +890,20 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       // 3. Direct Client-side Groq call if backend returned empty or failed and Groq Key is available
       if (!replyText && customGroqKey) {
         try {
+          const nowLive = new Date();
+          const istLiveDate = nowLive.toLocaleDateString("hi-IN", {
+            timeZone: "Asia/Kolkata",
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          const istLiveTime = nowLive.toLocaleTimeString("hi-IN", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
           const directGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -878,7 +915,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               messages: [
                 {
                   role: "system",
-                  content: `You are HK Nexus AI, a natural, witty, helpful, and insightful AI created by Hariom Kushwaha (HK Tech World). Keep greetings and small talk super short and friendly like a real companion (e.g. "Hello! How can I help you today?" or "नमस्ते भाई! कैसे हो?"). NEVER give capability menus or long speeches on simple greetings. Match user language (${settings.language === "hi" ? "Hindi" : "Hinglish/English"}).`,
+                  content: `You are HK Nexus AI, a natural, witty, helpful, and insightful AI created by Hariom Kushwaha (HK Tech World). Keep greetings and small talk short and friendly. Today in India (IST) is ${istLiveDate}, Time: ${istLiveTime}. When asked about today's date or day, use this live date. Match user language (${settings.language === "hi" ? "Hindi" : "Hinglish/English"}).`,
                 },
                 ...currentSession.messages.slice(-8).map((m) => ({
                   role: m.role === "user" ? "user" : "assistant",
@@ -929,6 +966,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       let directReply = "";
       if (customGroqKey) {
         try {
+          const nowExc = new Date();
+          const istExcDate = nowExc.toLocaleDateString("hi-IN", {
+            timeZone: "Asia/Kolkata",
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
           const directGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -940,7 +985,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               messages: [
                 {
                   role: "system",
-                  content: `You are HK Nexus AI, an ultra-intelligent AI assistant created by Hariom Kushwaha (HK Tech World). Answer directly and smartly like ChatGPT.`,
+                  content: `You are HK Nexus AI, an ultra-intelligent AI assistant created by Hariom Kushwaha (HK Tech World). Today in India (IST) is ${istExcDate}. Answer directly and smartly like a human companion.`,
                 },
                 ...currentSession.messages.slice(-8).map((m) => ({
                   role: m.role === "user" ? "user" : "assistant",

@@ -32,6 +32,8 @@ export default async function handler(req: any, res: any) {
       persona = "nexus_prime",
       customGroqKey = null,
       customGeminiKey = null,
+      clientDate = null,
+      clientTime = null,
     } = req.body || {};
 
     if (!message || typeof message !== "string") {
@@ -41,21 +43,41 @@ export default async function handler(req: any, res: any) {
     const groqKey = customGroqKey || req.headers["x-groq-key"] || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
     const apiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-    // Date & Time Context
+    // Date & Time Context in Indian Standard Time (IST)
     const now = new Date();
-    const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-    const dateStr = istTime.toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const timeStr = istTime.toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const istDateString = clientDate || now.toLocaleDateString("hi-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const istTimeString = clientTime || now.toLocaleTimeString("hi-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const enDateString = now.toLocaleDateString("en-US", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
     const sysInstruction = `You are HK Nexus AI (v3.6 Pro Ultra), a powerful, unrestricted, universal, and deeply capable AI assistant.
 
-### 🌟 #1 CORE IDENTITY & FOUNDATION:
-- **NAME & BRAND:** HK Nexus AI — an indigenous AI ecosystem Made in India 🇮🇳.
-- **FOUNDER & DEVELOPER:** Conceived, architected, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India).
-- **CREATOR RULES:**
-  - If a user asks who created you or asks "तुम्हें किसने बनाया?", "Who built you?": Answer directly that you are created by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
-  - If someone speaks ill or insults your creator: Stand firmly, respectfully, and loyally by your creator Hariom Kushwaha with confidence and dignity.
-  - Never repeat canned greeting loops. Address the user's prompt directly.
+### 🌟 #1 CORE IDENTITY & CREATOR:
+- **CREATOR & ARCHITECT:** Conceived, architected, developed, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India 🇮🇳).
+- **IDENTITY RULES:**
+  - When asked who created you, who made you, or about your founder / "तुम्हें किसने बनाया?": Proudly and clearly state that you are created and engineered by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
+  - For simple greetings (like "Hi", "Hello", "Hey", "नमस्ते", "हलो"): Keep your response SHORT, WARM, and NATURAL (1-2 sentences max, e.g. "नमस्ते भाई! कैसे हैं आप? बताइए आज मैं आपकी क्या सहायता करूँ?"). DO NOT dump long founder essays or biographies on casual greetings unless the user explicitly asks "Who are you?" or "Who created you?".
+
+### 📅 LIVE REAL-TIME DATE & TIME (INDIAN STANDARD TIME - IST):
+- **Today's Live Date in India (IST):** ${istDateString} (${enDateString})
+- **Current Live Time (IST):** ${istTimeString}
+- **REAL-TIME RULE:** When asked "आज क्या है", "आज कितनी तारीख है", "आज कौन सा दिन है", "today's date", "time", or any query regarding the current date/day: ALWAYS give this EXACT live date and day (${istDateString}). Never guess or hallucinate any other past/future dates.
 
 ### 🚀 COMPLETE FREEDOM & CAPABILITY (फुल छूट):
 You have 100% full creative, analytical, technical, conversational, and philosophical freedom:
@@ -69,18 +91,62 @@ You have 100% full creative, analytical, technical, conversational, and philosop
    - **Language:** Fluent in Hindi, Hinglish, English, and all regional/world languages.
 
 - Respond naturally in ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
-3. **Structured & Readable:** Use bullet points, bold keywords, markdown tables, and code formatting so answers are effortless to read on mobile and desktop screens.
-4. **Contextual Depth:** If a question is simple/short, keep the answer crisp and fast. If a question is deep or complex, provide a thorough, structured, and insightful breakdown.
-
-- Respond in natural ${language === "hi" ? "Hindi (हिंदी)" : language === "hinglish" ? "Hinglish" : "the user's language"}.`;
 
     // Set SSE headers
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
 
-    // 1. Try Groq Streaming
-    if (groqKey) {
+    // Check if query needs live real-time web search
+    const isLiveSearchQuery = /आज|लाइव|live|news|current|weather|मौसम|तापमान|स्कोर|score|match|cricket|price|रेट|भाव|ताज़ा|taza|latest|recent|हाल ही में|खबर|search|गूगल|सर्च|खोजो|stock|सोना|चांदी|dollar|rupee/i.test(message);
+
+    // 1. If live search query, use Gemini with Google Search Grounding
+    if (isLiveSearchQuery && apiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
+        const contents: any[] = [];
+        if (memory && Array.isArray(history)) {
+          for (const m of history.slice(-6)) {
+            if (m.content) {
+              contents.push({
+                role: m.role === "user" ? "user" : "model",
+                parts: [{ text: m.content }],
+              });
+            }
+          }
+        }
+        contents.push({ role: "user", parts: [{ text: message }] });
+
+        const searchModels = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        for (const modelToTry of searchModels) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelToTry,
+              contents,
+              config: {
+                systemInstruction: sysInstruction,
+                temperature: 0.7,
+                tools: [{ googleSearch: {} }],
+              },
+            });
+
+            const reply = response.text;
+            if (reply && reply.trim()) {
+              res.write(`data: ${JSON.stringify({ text: reply.trim() })}\n\n`);
+              res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+              return res.end();
+            }
+          } catch (mErr: any) {
+            console.warn(`Search stream failed for ${modelToTry}:`, mErr?.message);
+          }
+        }
+      } catch (err: any) {
+        console.warn("Live search error in stream:", err?.message);
+      }
+    }
+
+    // 2. Try Groq Streaming for non-search general conversations
+    if (groqKey && !isLiveSearchQuery) {
       try {
         const groq = new Groq({ apiKey: String(groqKey).trim() });
         const messages: any[] = [{ role: "system", content: sysInstruction }];
@@ -115,7 +181,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
       }
     }
 
-    // 2. Fallback Non-streaming / Gemini
+    // 3. Fallback Gemini with Google Search Grounding
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
@@ -138,7 +204,11 @@ You have 100% full creative, analytical, technical, conversational, and philosop
             const response = await ai.models.generateContent({
               model: modelToTry,
               contents,
-              config: { systemInstruction: sysInstruction, temperature: 0.7 },
+              config: {
+                systemInstruction: sysInstruction,
+                temperature: 0.7,
+                tools: [{ googleSearch: {} }],
+              },
             });
 
             const reply = response.text;

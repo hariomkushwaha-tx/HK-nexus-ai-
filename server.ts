@@ -89,16 +89,16 @@ const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (v3.6 Pro Ultra), a brillia
    - Speak in warm, respectful, natural Hindi / Hinglish / English.
    - Zero robotic cliches, zero repetition.`;
 
-function getDynamicSystemInstruction(persona: string = "nexus_prime", language: string = "auto") {
+function getDynamicSystemInstruction(persona: string = "nexus_prime", language: string = "auto", clientDate: string | null = null, clientTime: string | null = null) {
   const now = new Date();
-  const istDateString = now.toLocaleDateString("hi-IN", {
+  const istDateString = clientDate || now.toLocaleDateString("hi-IN", {
     timeZone: "Asia/Kolkata",
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
-  const istTimeString = now.toLocaleTimeString("hi-IN", {
+  const istTimeString = clientTime || now.toLocaleTimeString("hi-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
@@ -210,9 +210,11 @@ app.post("/api/chat", async (req, res) => {
       customGroqKey = null,
       customGeminiKey = null,
       preferredEngine = "auto",
+      clientDate = null,
+      clientTime = null,
     } = req.body;
 
-    const sysInstruction = getDynamicSystemInstruction(persona, language);
+    const sysInstruction = getDynamicSystemInstruction(persona, language, clientDate, clientTime);
 
     let modePrompt = "";
     if (mode === "coding") {
@@ -226,8 +228,11 @@ app.post("/api/chat", async (req, res) => {
     const groqKey = customGroqKey || req.headers["x-groq-key"] || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
     const geminiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY;
 
-    // If preferredEngine is groq or auto (and groqKey exists), try Groq Llama-3.3-70B first!
-    if ((preferredEngine === "groq" || preferredEngine === "auto") && groqKey) {
+    // Check if query needs live real-time web search or current information
+    const isLiveSearchQuery = mode === "search" || /आज|लाइव|live|news|current|weather|मौसम|तापमान|स्कोर|score|match|cricket|price|रेट|भाव|ताज़ा|taza|latest|recent|हाल ही में|खबर|search|गूगल|सर्च|खोजो|stock|सोना|चांदी|dollar|rupee/i.test(message);
+
+    // If preferredEngine is groq (and not a live search query), try Groq Llama-3.3-70B
+    if (preferredEngine === "groq" && groqKey && !isLiveSearchQuery) {
       try {
         const groq = new Groq({ apiKey: String(groqKey).trim() });
         const groqMessages: any[] = [{ role: "system", content: sysInstruction }];
@@ -251,7 +256,7 @@ app.post("/api/chat", async (req, res) => {
         if (groqReply) {
           return res.json({
             success: true,
-            reply: groqReply,
+            reply: sanitizeResponseIdentity(groqReply),
             groundingChunks: [],
             provider: "Groq (Llama-3.3 70B High Speed)",
             creator: "Hariom Kushwaha (HK Tech World)",
@@ -262,7 +267,7 @@ app.post("/api/chat", async (req, res) => {
       }
     }
 
-    // Try Gemini
+    // Try Gemini (Gemini has LIVE Google Search Grounding for real-time accuracy)
     const ai = getGenAIClient(geminiKey as string);
     const contents: any[] = [];
 
@@ -296,7 +301,7 @@ app.post("/api/chat", async (req, res) => {
     let reply = "";
     let groundingChunks: any[] = [];
 
-    // 1. Try Gemini Primary with search if requested
+    // 1. Try Gemini Primary with Live Google Search Grounding
     try {
       response = await ai.models.generateContent({
         model: modelName,
@@ -304,17 +309,18 @@ app.post("/api/chat", async (req, res) => {
         config: {
           systemInstruction: sysInstruction,
           temperature: 0.7,
+          tools: [{ googleSearch: {} }],
         },
       });
       reply = response.text || "";
       if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
         groundingChunks = response.candidates[0].groundingMetadata.groundingChunks.map((chunk: any) => ({
-          title: chunk.web?.title || "Reference",
+          title: chunk.web?.title || "Web Reference",
           uri: chunk.web?.uri || "#",
         }));
       }
     } catch (primaryErr: any) {
-      console.warn("Primary Gemini call failed, trying backup Gemini models:", primaryErr?.message);
+      console.warn("Primary Gemini call with search failed, trying backup Gemini models:", primaryErr?.message);
       
       const backupGeminiModels = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
       for (const backupModel of backupGeminiModels) {
@@ -325,10 +331,19 @@ app.post("/api/chat", async (req, res) => {
             config: {
               systemInstruction: sysInstruction,
               temperature: 0.7,
+              tools: [{ googleSearch: {} }],
             },
           });
           reply = response.text || "";
-          if (reply) break;
+          if (reply) {
+            if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+              groundingChunks = response.candidates[0].groundingMetadata.groundingChunks.map((chunk: any) => ({
+                title: chunk.web?.title || "Web Reference",
+                uri: chunk.web?.uri || "#",
+              }));
+            }
+            break;
+          }
         } catch (bkErr: any) {
           console.warn(`Backup model ${backupModel} error:`, bkErr?.message);
         }
@@ -409,14 +424,14 @@ app.post("/api/chat", async (req, res) => {
 // 1.1 CHAT STREAMING API (Ultra-Fast Response)
 app.post("/api/chat/stream", async (req, res) => {
   try {
-    const { message, history = [], memory = true, language = "auto", persona = "nexus_prime", mode = "general", image = null } = req.body;
+    const { message, history = [], memory = true, language = "auto", persona = "nexus_prime", mode = "general", image = null, clientDate = null, clientTime = null } = req.body;
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
     const ai = getGenAIClient();
-    const sysInstruction = getDynamicSystemInstruction(persona, language);
+    const sysInstruction = getDynamicSystemInstruction(persona, language, clientDate, clientTime);
     const contents: any[] = [];
 
     if (memory && Array.isArray(history)) {
