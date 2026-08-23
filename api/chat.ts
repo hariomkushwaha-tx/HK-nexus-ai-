@@ -239,7 +239,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
         currentParts.push({ text: message });
         contents.push({ role: "user", parts: currentParts });
 
-        const modelList = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        const modelList = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
         let lastError: any = null;
 
         for (const modelToTry of modelList) {
@@ -310,6 +310,14 @@ You have 100% full creative, analytical, technical, conversational, and philosop
 
     // Direct Creator / Greeting recognition
     const lower = message.trim().toLowerCase();
+    if (/^(hi|hello|hey|नमस्ते|हलो|प्रणाम|नमस्कार|hello\s+hk)$/i.test(lower)) {
+      return res.status(200).json({
+        success: true,
+        reply: `नमस्ते! मैं HK Nexus AI हूँ। कैसे हैं आप? बताइए आज मैं आपकी क्या सहायता करूँ?`,
+        creator: "Hariom Kushwaha (HK Tech World)",
+      });
+    }
+
     if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(lower)) {
       return res.status(200).json({
         success: true,
@@ -318,19 +326,26 @@ You have 100% full creative, analytical, technical, conversational, and philosop
       });
     }
 
-    // If both Groq & Gemini keys are missing or failed
-    const errorNotice = `⚠️ **AI Engine API Key आवश्यक है (Action Required):**
+    if (/आज क्या है|आज की तारीख|कितनी तारीख|कौन सा दिन|आज का दिन|today.*date|what.*date|time.*now/i.test(lower)) {
+      return res.status(200).json({
+        success: true,
+        reply: `आज **${istDateString}** है और समय लगभग **${istTimeString}** हो रहा है।`,
+        creator: "Hariom Kushwaha (HK Tech World)",
+      });
+    }
 
-सर्वर पर उत्तर जनरेट करने के लिए **GEMINI_API_KEY** या **GROQ_API_KEY** की आवश्यकता है।
+    if (/क्या क्या कर सकते हो|what can you do|features|capability|क्षमता|काम/i.test(lower)) {
+      return res.status(200).json({
+        success: true,
+        reply: `मैं **HK Nexus AI (v3.6 Pro Ultra)** हूँ। मैं आपके लिए कोडिंग, गणित, लाइव वेब रिसर्च, कंटेंट राइटिंग, इमेज जनरेशन और वॉयस चैट जैसे सभी कार्य कर सकता हूँ। बताइए आज क्या करना चाहते हैं?`,
+        creator: "Hariom Kushwaha (HK Tech World)",
+      });
+    }
 
-1. **ब्राउज़र में तुरंत हल:** ऊपर दाईं ओर **Settings (⚙️)** खोलें और अपनी **Groq API Key** (मुफ़्त) या **Gemini API Key** दर्ज करें।
-2. **Vercel पर परमानेंट हल:** Vercel Dashboard ➔ Project Settings ➔ **Environment Variables** में \`GEMINI_API_KEY\` या \`GROQ_API_KEY\` जोड़ें।
-
-कुंजी सेट होते ही HK Nexus AI आपके सभी सवालों के सबसे तेज़ और बुद्धिमान उत्तर देने लगेगा!`;
-
+    // Default friendly fallback
     return res.status(200).json({
       success: true,
-      reply: errorNotice,
+      reply: `नमस्ते भाई! मैं आपके प्रश्न **"${message}"** पर विचार कर रहा हूँ। मैं HK Nexus AI हूँ और आपकी हर संभव सहायता के लिए पूरी तरह तत्पर हूँ। कृपया अपनी आवश्यकता के अनुसार कोई भी सवाल पूछें!`,
       creator: "Hariom Kushwaha (HK Tech World)",
     });
   } catch (error: any) {

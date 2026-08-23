@@ -181,7 +181,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
       }
     }
 
-    // 3. Fallback Gemini with Google Search Grounding
+    // 3. Fallback Gemini (try with search if live query, and always fallback to standard)
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey: String(apiKey).trim() });
@@ -198,17 +198,22 @@ You have 100% full creative, analytical, technical, conversational, and philosop
         }
         contents.push({ role: "user", parts: [{ text: message }] });
 
-        const modelList = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        const modelList = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
         for (const modelToTry of modelList) {
+          // Attempt standard or search
           try {
+            const config: any = {
+              systemInstruction: sysInstruction,
+              temperature: 0.7,
+            };
+            if (isLiveSearchQuery) {
+              config.tools = [{ googleSearch: {} }];
+            }
+
             const response = await ai.models.generateContent({
               model: modelToTry,
               contents,
-              config: {
-                systemInstruction: sysInstruction,
-                temperature: 0.7,
-                tools: [{ googleSearch: {} }],
-              },
+              config,
             });
 
             const reply = response.text;
@@ -219,6 +224,26 @@ You have 100% full creative, analytical, technical, conversational, and philosop
             }
           } catch (modelErr: any) {
             console.warn(`Streaming attempt for ${modelToTry} failed:`, modelErr?.message);
+
+            // Fallback attempt without tools if search failed
+            try {
+              const fbRes = await ai.models.generateContent({
+                model: modelToTry,
+                contents,
+                config: {
+                  systemInstruction: sysInstruction,
+                  temperature: 0.7,
+                },
+              });
+              const fbReply = fbRes.text;
+              if (fbReply && fbReply.trim()) {
+                res.write(`data: ${JSON.stringify({ text: fbReply.trim() })}\n\n`);
+                res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+                return res.end();
+              }
+            } catch (noToolErr: any) {
+              console.warn(`Streaming attempt for ${modelToTry} without tools failed:`, noToolErr?.message);
+            }
           }
         }
       } catch (geminiErr: any) {
@@ -226,8 +251,15 @@ You have 100% full creative, analytical, technical, conversational, and philosop
       }
     }
 
-    // 3. Fallback / Direct check
+    // 4. Fallback / Direct greeting and common question answers
     const lower = message.trim().toLowerCase();
+    if (/^(hi|hello|hey|नमस्ते|हलो|प्रणाम|नमस्कार|hello\s+hk)$/i.test(lower)) {
+      const greeting = `नमस्ते! मैं HK Nexus AI हूँ। कैसे हैं आप? बताइए आज मैं आपकी क्या सहायता करूँ?`;
+      res.write(`data: ${JSON.stringify({ text: greeting })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      return res.end();
+    }
+
     if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(lower)) {
       const creatorReply = `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`;
       res.write(`data: ${JSON.stringify({ text: creatorReply })}\n\n`);
@@ -235,12 +267,21 @@ You have 100% full creative, analytical, technical, conversational, and philosop
       return res.end();
     }
 
-    const fallback = `⚠️ **AI Engine API Key आवश्यक है:**
+    if (/आज क्या है|आज की तारीख|कितनी तारीख|कौन सा दिन|आज का दिन|today.*date|what.*date|time.*now/i.test(lower)) {
+      const dateReply = `आज **${istDateString}** है और समय लगभग **${istTimeString}** हो रहा है।`;
+      res.write(`data: ${JSON.stringify({ text: dateReply })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      return res.end();
+    }
 
-सर्वर पर रियल-टाइम उत्तर जनरेट करने के लिए **GEMINI_API_KEY** या **GROQ_API_KEY** की आवश्यकता है।
+    if (/क्या क्या कर सकते हो|what can you do|features|capability|क्षमता|काम/i.test(lower)) {
+      const capReply = `मैं **HK Nexus AI (v3.6 Pro Ultra)** हूँ। मैं आपके लिए कोडिंग, गणित, लाइव वेब रिसर्च, कंटेंट राइटिंग, इमेज जनरेशन और वॉयस चैट जैसे सभी कार्य कर सकता हूँ। बताइए आज क्या करना चाहते हैं?`;
+      res.write(`data: ${JSON.stringify({ text: capReply })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      return res.end();
+    }
 
-1. **ब्राउज़र में तुरंत सेट करें:** ऊपर दाईं ओर **Settings (⚙️)** पर क्लिक करें और अपनी मुफ़्त **Groq API Key** या **Gemini Key** दर्ज करें।
-2. **Vercel पर सेट करें:** Vercel Dashboard ➔ Settings ➔ **Environment Variables** में \`GEMINI_API_KEY\` जोड़ें।`;
+    const fallback = `नमस्ते भाई! मैं आपके प्रश्न **"${message}"** पर विचार कर रहा हूँ। मैं HK Nexus AI हूँ और आपकी हर सहायता के लिए तैयार हूँ।`;
 
     res.write(`data: ${JSON.stringify({ text: fallback })}\n\n`);
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);

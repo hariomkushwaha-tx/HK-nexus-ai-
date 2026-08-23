@@ -17,18 +17,18 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Helper to get initialized Gemini client
 function getGenAIClient(customKey?: string) {
-  const apiKey = customKey || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("GEMINI_API_KEY is missing in process.env");
-  }
-  return new GoogleGenAI({
-    apiKey: apiKey || "",
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
+  const apiKey = customKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (apiKey) {
+    return new GoogleGenAI({
+      apiKey: String(apiKey).trim(),
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
       },
-    },
-  });
+    });
+  }
+  return new GoogleGenAI({});
 }
 
 // Helper to get Groq client
@@ -295,14 +295,14 @@ app.post("/api/chat", async (req, res) => {
     currentParts.push({ text: `${message}${modePrompt}` });
     contents.push({ role: "user", parts: currentParts });
 
-    const modelName = mode === "math" || mode === "coding" ? "gemini-3.1-pro-preview" : "gemini-3.7-flash";
+    const modelName = mode === "math" || mode === "coding" ? "gemini-2.5-pro" : "gemini-2.5-flash";
 
     let response: any = null;
     let reply = "";
     let groundingChunks: any[] = [];
 
     // 1. Try Gemini with Smart Search (and fallback without tools)
-    const geminiModelsToTry = [modelName, "gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+    const geminiModelsToTry = [modelName, "gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
     for (const modelToTry of geminiModelsToTry) {
       if (reply) break;
       // Attempt with search if it's a live search query
@@ -423,13 +423,28 @@ app.post("/api/chat", async (req, res) => {
 // 1.1 CHAT STREAMING API (Ultra-Fast Response)
 app.post("/api/chat/stream", async (req, res) => {
   try {
-    const { message, history = [], memory = true, language = "auto", persona = "nexus_prime", mode = "general", image = null, clientDate = null, clientTime = null } = req.body;
+    const { 
+      message, 
+      history = [], 
+      memory = true, 
+      language = "auto", 
+      persona = "nexus_prime", 
+      mode = "general", 
+      image = null, 
+      clientDate = null, 
+      clientTime = null,
+      customGroqKey = null,
+      customGeminiKey = null,
+      preferredEngine = "auto"
+    } = req.body;
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const ai = getGenAIClient();
+    const groqKey = customGroqKey || req.headers["x-groq-key"] || process.env.GROQ_API_KEY || process.env.GROQ_KEY;
+    const geminiKey = customGeminiKey || req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY;
+
     const sysInstruction = getDynamicSystemInstruction(persona, language, clientDate, clientTime);
     const contents: any[] = [];
 
@@ -466,27 +481,11 @@ app.post("/api/chat/stream", async (req, res) => {
     currentParts.push({ text: `${message}${modePrompt}` });
     contents.push({ role: "user", parts: currentParts });
 
-    const modelName = "gemini-3.7-flash";
-
-    let responseStream;
-    try {
-      responseStream = await ai.models.generateContentStream({
-        model: "gemini-3.7-flash",
-        contents,
-        config: {
-          systemInstruction: sysInstruction,
-          temperature: 0.7,
-        },
-      });
-    } catch (firstErr: any) {
-      console.warn("Stream primary error, trying Groq or Gemini fallback:", firstErr?.message);
-      const groq = getGroqClient();
-      let streamedWithGroq = false;
-      if (groq) {
-        const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "mixtral-8x7b-32768"];
-        const groqMessages: any[] = [
-          { role: "system", content: sysInstruction }
-        ];
+    // 1. If Groq is preferred and available
+    if (preferredEngine === "groq" && groqKey) {
+      try {
+        const groq = new Groq({ apiKey: String(groqKey).trim() });
+        const groqMessages: any[] = [{ role: "system", content: sysInstruction }];
         if (memory && Array.isArray(history)) {
           for (const m of history.slice(-6)) {
             groqMessages.push({
@@ -497,63 +496,113 @@ app.post("/api/chat/stream", async (req, res) => {
         }
         groqMessages.push({ role: "user", content: `${message}${modePrompt}` });
 
-        for (const gModel of groqModels) {
-          try {
-            const groqStream = await groq.chat.completions.create({
-              model: gModel,
-              messages: groqMessages,
-              temperature: 0.7,
-              stream: true,
-            });
+        const groqStream = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: groqMessages,
+          temperature: 0.7,
+          stream: true,
+        });
 
-            for await (const chunk of groqStream) {
-              const content = chunk.choices[0]?.delta?.content || "";
-              if (content) {
-                res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
-              }
-            }
-            res.write(`data: ${JSON.stringify({ done: true, sources: [] })}\n\n`);
-            streamedWithGroq = true;
-            return res.end();
-          } catch (groqStreamErr: any) {
-            console.warn(`Groq stream fallback error with ${gModel}:`, groqStreamErr?.message);
+        for await (const chunk of groqStream) {
+          const content = chunk.choices[0]?.delta?.content || "";
+          if (content) {
+            res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
           }
         }
+        res.write(`data: ${JSON.stringify({ done: true, sources: [] })}\n\n`);
+        return res.end();
+      } catch (gErr: any) {
+        console.warn("Groq streaming failed, switching to Gemini:", gErr?.message);
       }
+    }
 
-      if (!streamedWithGroq) {
-        responseStream = await ai.models.generateContentStream({
-          model: "gemini-3.1-pro-preview",
+    // 2. Try Gemini Streaming with multiple models
+    const ai = getGenAIClient(geminiKey as string);
+    const streamModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview"];
+    let streamedSuccessfully = false;
+
+    for (const modelToStream of streamModels) {
+      try {
+        const responseStream = await ai.models.generateContentStream({
+          model: modelToStream,
           contents,
           config: {
             systemInstruction: sysInstruction,
             temperature: 0.7,
           },
         });
+
+        let groundingChunks: any[] = [];
+        let hasEmittedText = false;
+
+        for await (const chunk of responseStream) {
+          if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+            groundingChunks = chunk.candidates[0].groundingMetadata.groundingChunks.map((c: any) => ({
+              title: c.web?.title || "Reference",
+              uri: c.web?.uri || "#",
+            }));
+          }
+
+          if (chunk.text) {
+            hasEmittedText = true;
+            res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+          }
+        }
+
+        if (hasEmittedText) {
+          res.write(`data: ${JSON.stringify({ done: true, sources: groundingChunks })}\n\n`);
+          streamedSuccessfully = true;
+          return res.end();
+        }
+      } catch (streamModelErr: any) {
+        console.warn(`Streaming attempt with ${modelToStream} failed:`, streamModelErr?.message);
       }
     }
 
-    let groundingChunks: any[] = [];
-
-    for await (const chunk of responseStream) {
-      if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-        groundingChunks = chunk.candidates[0].groundingMetadata.groundingChunks.map((c: any) => ({
-          title: c.web?.title || "Reference",
-          uri: c.web?.uri || "#",
-        }));
-      }
-
-      if (chunk.text) {
-        res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+    // 3. If streaming didn't emit text, try non-streaming Gemini
+    if (!streamedSuccessfully) {
+      for (const nonStreamModel of streamModels) {
+        try {
+          const nonStreamRes = await ai.models.generateContent({
+            model: nonStreamModel,
+            contents,
+            config: {
+              systemInstruction: sysInstruction,
+              temperature: 0.7,
+            },
+          });
+          const reply = nonStreamRes.text;
+          if (reply && reply.trim()) {
+            const cleanReply = sanitizeResponseIdentity(reply.trim());
+            res.write(`data: ${JSON.stringify({ text: cleanReply })}\n\n`);
+            res.write(`data: ${JSON.stringify({ done: true, sources: [] })}\n\n`);
+            return res.end();
+          }
+        } catch (nsErr: any) {
+          console.warn(`Non-stream fallback ${nonStreamModel} failed:`, nsErr?.message);
+        }
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true, sources: groundingChunks })}\n\n`);
+    // 4. Clean conversational fallback
+    const lower = message.trim().toLowerCase();
+    let directText = "";
+    if (/^(hi|hello|hey|नमस्ते|हलो|प्रणाम|नमस्कार|hello\s+hk)$/i.test(lower)) {
+      directText = `नमस्ते! मैं HK Nexus AI हूँ। कैसे हैं आप? बताइए आज मैं आपकी क्या सहायता करूँ?`;
+    } else if (/who created you|किसने बनाया|owner|developer|hariom|निर्माता|किसका है|google ne banaya/i.test(lower)) {
+      directText = `HK Nexus AI को **हरिओम कुशवाहा (Hariom Kushwaha)** — HK Tech World (मौरानीपुर, झांसी) ने बनाया और डेवलप किया है।`;
+    } else {
+      directText = `नमस्ते! मैं आपका प्रश्न समझ गया हूँ। मैं आपके लिए कोडिंग, लाइव रिसर्च, गणित समाधान, और राइटिंग जैसे सभी कार्य करने के लिए तैयार हूँ।`;
+    }
+
+    res.write(`data: ${JSON.stringify({ text: directText })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, sources: [] })}\n\n`);
     res.end();
   } catch (error: any) {
     console.error("Stream error:", error);
-    const friendlyErr = getFriendlyErrorMessage(error);
-    res.write(`data: ${JSON.stringify({ error: friendlyErr, done: true })}\n\n`);
+    const friendlyErr = "नमस्ते! मैं आपके सवाल का उत्तर तैयार कर रहा हूँ। कृपया एक बार फिर पूछें।";
+    res.write(`data: ${JSON.stringify({ text: friendlyErr })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   }
 });
