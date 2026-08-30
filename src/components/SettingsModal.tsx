@@ -19,12 +19,6 @@ import {
   Code2,
   Zap,
   RotateCcw,
-  Key,
-  ExternalLink,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  EyeOff,
   Radio
 } from "lucide-react";
 
@@ -84,14 +78,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   setSettings
 }) => {
-  const [activeTab, setActiveTab] = useState<"ai" | "voice" | "memory" | "keys">("ai");
+  const [activeTab, setActiveTab] = useState<"ai" | "voice" | "memory">("ai");
   const [testingVoiceId, setTestingVoiceId] = useState<string | null>(null);
   const [testAudio, setTestAudio] = useState<HTMLAudioElement | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [showGroqKey, setShowGroqKey] = useState(false);
-  const [keyTestStatus, setKeyTestStatus] = useState<{ testing?: boolean; success?: boolean; message?: string }>({});
 
   // Load available Web Speech API voices
   useEffect(() => {
@@ -261,51 +252,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // Test custom API Key
-  const handleTestApiKey = async (type: "gemini" | "groq") => {
-    const key = type === "gemini" ? settings.customGeminiApiKey : settings.customGroqApiKey;
-    if (!key || !key.trim()) {
-      setKeyTestStatus({ testing: false, success: false, message: `कृपया पहले ${type === "gemini" ? "Gemini" : "Groq"} API Key दर्ज करें!` });
-      return;
-    }
-
-    setKeyTestStatus({ testing: true, message: `API Key की जाँच की जा रही है...` });
-
-    try {
-      if (type === "groq") {
-        const testRes = await fetch("https://api.groq.com/openai/v1/models", {
-          headers: { Authorization: `Bearer ${key.trim()}` },
-        });
-        if (testRes.ok) {
-          setKeyTestStatus({ testing: false, success: true, message: "✅ Groq API Key 100% सही और सक्रिय है!" });
-        } else {
-          setKeyTestStatus({ testing: false, success: false, message: "❌ अमान्य Groq API Key! कृपया कुंजी की जांच करें।" });
-        }
-      } else {
-        const testRes = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-gemini-key": key.trim() },
-          body: JSON.stringify({ message: "test", customGeminiKey: key.trim() }),
-        });
-        const data = await testRes.json();
-        if (data.success) {
-          setKeyTestStatus({ testing: false, success: true, message: "✅ Gemini API Key 100% सही और सक्रिय है!" });
-        } else {
-          setKeyTestStatus({ testing: false, success: false, message: `❌ Gemini Key में समस्या: ${data.error || "जांचें"}` });
-        }
-      }
-    } catch (err: any) {
-      setKeyTestStatus({ testing: false, success: false, message: `❌ कनेक्शन त्रुटि: ${err.message}` });
-    }
-  };
-
   const handleSaveAndClose = () => {
-    if (settings.customGeminiApiKey) {
-      localStorage.setItem("hk_custom_gemini_key", settings.customGeminiApiKey.trim());
-    }
-    if (settings.customGroqApiKey) {
-      localStorage.setItem("hk_custom_groq_key", settings.customGroqApiKey.trim());
-    }
     setShowSavedToast(true);
     setTimeout(() => {
       setShowSavedToast(false);
@@ -367,7 +314,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex items-center p-1 bg-slate-950 rounded-2xl border border-slate-800/80 text-xs">
           <button
             onClick={() => setActiveTab("ai")}
-            className={`flex-1 py-2 px-1 rounded-xl font-bold transition-all flex items-center justify-center space-x-1 ${
+            className={`flex-1 py-2 px-2 rounded-xl font-bold transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === "ai"
                 ? "bg-cyan-600 text-white shadow-md shadow-cyan-950"
                 : "text-slate-400 hover:text-slate-200"
@@ -379,7 +326,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab("voice")}
-            className={`flex-1 py-2 px-1 rounded-xl font-bold transition-all flex items-center justify-center space-x-1 ${
+            className={`flex-1 py-2 px-2 rounded-xl font-bold transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === "voice"
                 ? "bg-cyan-600 text-white shadow-md shadow-cyan-950"
                 : "text-slate-400 hover:text-slate-200"
@@ -391,7 +338,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab("memory")}
-            className={`flex-1 py-2 px-1 rounded-xl font-bold transition-all flex items-center justify-center space-x-1 ${
+            className={`flex-1 py-2 px-2 rounded-xl font-bold transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === "memory"
                 ? "bg-cyan-600 text-white shadow-md shadow-cyan-950"
                 : "text-slate-400 hover:text-slate-200"
@@ -399,18 +346,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <BrainCircuit className="w-3.5 h-3.5" />
             <span>Memory</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("keys")}
-            className={`flex-1 py-2 px-1 rounded-xl font-bold transition-all flex items-center justify-center space-x-1 ${
-              activeTab === "keys"
-                ? "bg-cyan-600 text-white shadow-md shadow-cyan-950"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>API Keys</span>
           </button>
         </div>
 
@@ -740,169 +675,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <p className="text-[10px] text-red-300/80">
                   इस बटन से आपकी सारी पुरानी बातचीत और सेव्ड मैसेज पूरी तरह डिलीट हो जाएंगे।
                 </p>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: API Keys & Engine Configuration */}
-          {activeTab === "keys" && (
-            <div className="space-y-4">
-              {/* Important Vercel / Deployment Guidance Box */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/70 to-slate-900 border border-indigo-500/40 text-slate-200 space-y-2">
-                <div className="flex items-center space-x-2 text-cyan-400 font-bold">
-                  <Zap className="w-4 h-4" />
-                  <span>💡 Vercel / Live Deployment Guide</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  यदि आपने Vercel पर Environment Variables जोड़े हैं, तो कृपया Vercel Dashboard में <strong>Deployments ➔ 3 डॉट्स (⋮) ➔ Redeploy</strong> पर क्लिक करें ताकि नए keys लाइव सर्वर पर लोड हो सकें।
-                </p>
-                <p className="text-[10px] text-cyan-300/90 font-medium">
-                  ✨ या फिर आप सीधे नीचे अपनी Key पेस्ट करके <strong>"Save & Apply"</strong> कर सकते हैं — यह ब्राउज़र में तुरंत काम करने लगेगी!
-                </p>
-              </div>
-
-              {/* Key Test Status Banner */}
-              {keyTestStatus.message && (
-                <div className={`p-3 rounded-2xl text-xs font-semibold flex items-center space-x-2 border ${
-                  keyTestStatus.testing 
-                    ? "bg-cyan-950/80 border-cyan-500 text-cyan-300"
-                    : keyTestStatus.success
-                    ? "bg-emerald-950/90 border-emerald-500 text-emerald-300"
-                    : "bg-red-950/90 border-red-500 text-red-300"
-                }`}>
-                  {keyTestStatus.testing ? (
-                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                  ) : keyTestStatus.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  )}
-                  <span>{keyTestStatus.message}</span>
-                </div>
-              )}
-
-              {/* Preferred AI Engine Selector */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
-                <label className="block font-bold text-white flex items-center space-x-2">
-                  <Cpu className="w-4 h-4 text-cyan-400" />
-                  <span>प्राथमिक AI इंजन (Preferred Engine)</span>
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "auto", label: "Auto (स्मार्ट)", desc: "सर्वोत्तम स्पीड व क्वालिटी" },
-                    { id: "groq", label: "Groq Llama", desc: "बिजली जैसी तेज़ स्पीड" },
-                    { id: "gemini", label: "Gemini 2.5", desc: "लाइव सर्च व डीप विज़न" },
-                  ].map((engine) => {
-                    const isSel = (settings.preferredEngine || "auto") === engine.id;
-                    return (
-                      <button
-                        key={engine.id}
-                        type="button"
-                        onClick={() => setSettings((s) => ({ ...s, preferredEngine: engine.id as any }))}
-                        className={`p-2 rounded-xl border text-left transition-all ${
-                          isSel
-                            ? "bg-cyan-950 border-cyan-500 text-white shadow-md shadow-cyan-950/50"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        <div className="font-bold text-xs">{engine.label}</div>
-                        <div className="text-[9px] text-slate-500">{engine.desc}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Groq API Key Input */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Zap className="w-4 h-4 text-amber-400" />
-                    <span className="font-bold text-white">Groq API Key (मुफ़्त और 500 T/s तेज़)</span>
-                  </div>
-                  <a
-                    href="https://console.groq.com/keys"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-cyan-400 hover:underline flex items-center gap-1"
-                  >
-                    <span>मुफ़्त Key लें</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                </div>
-
-                <div className="relative flex items-center">
-                  <input
-                    type={showGroqKey ? "text" : "password"}
-                    placeholder="gsk_..."
-                    value={settings.customGroqApiKey || ""}
-                    onChange={(e) => setSettings((s) => ({ ...s, customGroqApiKey: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 pr-20 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 font-mono"
-                  />
-                  <div className="absolute right-2 flex items-center space-x-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowGroqKey(!showGroqKey)}
-                      className="p-1.5 text-slate-400 hover:text-white"
-                      title={showGroqKey ? "Hide" : "Show"}
-                    >
-                      {showGroqKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestApiKey("groq")}
-                      className="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600 text-amber-300 hover:text-white rounded-lg text-[10px] font-bold border border-amber-500/40 transition-all"
-                    >
-                      Test
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Gemini API Key Input */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-cyan-400" />
-                    <span className="font-bold text-white">Gemini API Key (Google AI Studio)</span>
-                  </div>
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-cyan-400 hover:underline flex items-center gap-1"
-                  >
-                    <span>मुफ़्त Key लें</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                </div>
-
-                <div className="relative flex items-center">
-                  <input
-                    type={showGeminiKey ? "text" : "password"}
-                    placeholder="AIzaSy..."
-                    value={settings.customGeminiApiKey || ""}
-                    onChange={(e) => setSettings((s) => ({ ...s, customGeminiApiKey: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 pr-20 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 font-mono"
-                  />
-                  <div className="absolute right-2 flex items-center space-x-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowGeminiKey(!showGeminiKey)}
-                      className="p-1.5 text-slate-400 hover:text-white"
-                      title={showGeminiKey ? "Hide" : "Show"}
-                    >
-                      {showGeminiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestApiKey("gemini")}
-                      className="px-2.5 py-1 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white rounded-lg text-[10px] font-bold border border-cyan-500/40 transition-all"
-                    >
-                      Test
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           )}
