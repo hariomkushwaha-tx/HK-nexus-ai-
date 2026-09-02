@@ -1,6 +1,6 @@
 {
   "name": "HK Nexus AI",
-  "description": "Smart Multimodal AI Assistant by Hariom Kushwaha (HK Tech World). Features AI Chat, Vision OCR, Image & Logo Generator, Video AI Studio, Live Web Search, Math & Code Lab.",
+  "description": "Smart Multimodal AI Assistant by Hariom Kushwaha (HK Tech World). Features AI Chat, Vision OCR, Image & Logo Generator, Live Web Search, and Math & Code Lab.",
   "requestFramePermissions": [
     "microphone",
     "camera"
