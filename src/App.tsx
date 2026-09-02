@@ -4,7 +4,6 @@ import { Navbar } from "./components/Navbar";
 import { ChatWorkspace } from "./components/ChatWorkspace";
 import { VisionWorkspace } from "./components/VisionWorkspace";
 import { CreativeStudioWorkspace } from "./components/CreativeStudioWorkspace";
-import { VideoStudioWorkspace } from "./components/VideoStudioWorkspace";
 import { SearchWorkspace } from "./components/SearchWorkspace";
 import { LearningWorkspace } from "./components/LearningWorkspace";
 import { CreatorHubWorkspace } from "./components/CreatorHubWorkspace";
@@ -34,7 +33,7 @@ export default function App() {
       const tabParam = params.get("tab") as ActiveTab;
       const queryParam = params.get("q");
 
-      if (tabParam && ["chat", "vision", "studio", "video", "search", "learning", "creator"].includes(tabParam)) {
+      if (tabParam && ["chat", "vision", "studio", "search", "learning", "creator"].includes(tabParam)) {
         setActiveTab(tabParam);
       }
       if (queryParam) {
@@ -98,8 +97,6 @@ export default function App() {
         {activeTab === "vision" && <VisionWorkspace />}
 
         {activeTab === "studio" && <CreativeStudioWorkspace />}
-
-        {activeTab === "video" && <VideoStudioWorkspace />}
 
         {activeTab === "search" && (
           <SearchWorkspace

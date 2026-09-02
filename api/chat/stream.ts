@@ -1,6 +1,34 @@
 import Groq from "groq-sdk";
 import { GoogleGenAI } from "@google/genai";
 
+// Helper to sanitize and enforce HK Nexus identity against LLM RLHF defaults
+function sanitizeResponseIdentity(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let s = text;
+
+  // Remove phrases like ", जिसका नाम Gemini है" or "जिसका नाम जेमिनी है"
+  s = s.replace(/[,،]?\s*जिसका नाम (Gemini|जेमिनी|Google Gemini|गूगल जेमिनी) है/gi, "");
+  s = s.replace(/[,،]?\s*named (Gemini|Google Gemini)/gi, "");
+  s = s.replace(/\(\s*(Gemini|जेमिनी|Google Gemini)\s*\)/gi, "");
+  s = s.replace(/मैं (Gemini|जेमिनी) हूँ/gi, "मैं **HK Nexus AI** हूँ");
+  s = s.replace(/I am (Gemini|Google Gemini)/gi, "I am **HK Nexus AI**");
+  s = s.replace(/मेरा नाम (Gemini|जेमिनी) है/gi, "मेरा नाम **HK Nexus AI** है");
+  s = s.replace(/My name is (Gemini|Google Gemini)/gi, "My name is **HK Nexus AI**");
+
+  s = s.replace(/मेरा Google के साथ सीधा कनेक्शन है—मुझे Google ने ही बनाया और ट्रेन किया है। मैं Google का एक Large Language Model \(Gemini\) हूँ।/gi, "मेरा Google से केवल इतना संबंध है कि हम आधुनिक क्लाउड कंप्यूटिंग APIs का उपयोग करते हैं, लेकिन मुझे पूरी तरह से **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने विकसित, डिज़ाइन और तैयार किया है। मैं HK Nexus AI हूँ।");
+  s = s.replace(/मुझे Google ने (ही )?(बनाया|ट्रेन किया|विकसित किया)( है)?/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** ने बनाया और विकसित किया है");
+  s = s.replace(/मैं Google का (एक )?(Large Language Model|LLM|मॉडल)( \(Gemini\))? हूँ/gi, "मैं **HK Nexus AI** हूँ, जिसे **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित किया गया है");
+  s = s.replace(/मैं Google द्वारा (विकसित|ट्रेन किया गया).*?(हूँ|हूं)/gi, "मैं **हरिओम कुशवाहा (HK Tech World)** द्वारा विकसित HK Nexus AI हूँ");
+  s = s.replace(/I am a large language model, trained by Google\./gi, "I am HK Nexus AI, engineered and created by Hariom Kushwaha (HK Tech World).");
+  s = s.replace(/I was (created|trained|developed) by Google\./gi, "I was created and engineered by Hariom Kushwaha (HK Tech World).");
+
+  // Clean trailing artifacts if left behind
+  s = s.replace(/HK Nexus AI हूँ,\s*।/g, "HK Nexus AI हूँ।");
+  s = s.replace(/HK Nexus AI हूँ,\s*मैं/g, "HK Nexus AI हूँ। मैं");
+
+  return s;
+}
+
 export const config = {
   runtime: "nodejs",
 };
@@ -71,6 +99,7 @@ export default async function handler(req: any, res: any) {
 ### 🌟 #1 CORE IDENTITY & CREATOR:
 - **CREATOR & ARCHITECT:** Conceived, architected, developed, and engineered by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, Uttar Pradesh, India 🇮🇳).
 - **IDENTITY RULES:**
+  - **YOUR ONLY NAME:** Your name is **HK Nexus AI**. You must NEVER call yourself "Gemini", "Google Gemini", "ChatGPT", "LLaMA", or "Claude". NEVER output phrases like "जिसका नाम Gemini है" or "मैं Gemini हूँ".
   - When asked who created you, who made you, or about your founder / "तुम्हें किसने बनाया?": Proudly and clearly state that you are created and engineered by **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)**.
   - For simple greetings (like "Hi", "Hello", "Hey", "नमस्ते", "हलो"): Keep your response SHORT, WARM, and NATURAL (1-2 sentences max, e.g. "नमस्ते भाई! कैसे हैं आप? बताइए आज मैं आपकी क्या सहायता करूँ?"). DO NOT dump long founder essays or biographies on casual greetings unless the user explicitly asks "Who are you?" or "Who created you?".
   - **ZERO API KEY MENTIONS:** NEVER ask the user to enter or configure any API key, settings key, token, or setup. You are a completely autonomous and ready AI assistant.
@@ -219,7 +248,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
 
             const reply = response.text;
             if (reply && reply.trim()) {
-              res.write(`data: ${JSON.stringify({ text: reply.trim() })}\n\n`);
+              res.write(`data: ${JSON.stringify({ text: sanitizeResponseIdentity(reply.trim()) })}\n\n`);
               res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
               return res.end();
             }
@@ -238,7 +267,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
               });
               const fbReply = fbRes.text;
               if (fbReply && fbReply.trim()) {
-                res.write(`data: ${JSON.stringify({ text: fbReply.trim() })}\n\n`);
+                res.write(`data: ${JSON.stringify({ text: sanitizeResponseIdentity(fbReply.trim()) })}\n\n`);
                 res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                 return res.end();
               }

@@ -2,7 +2,6 @@ export type ActiveTab =
   | "chat" 
   | "vision" 
   | "studio" 
-  | "video" 
   | "search" 
   | "learning" 
   | "creator";
@@ -50,17 +49,6 @@ export interface GeneratedImageItem {
   aspectRatio: string;
 }
 
-export interface VideoProjectItem {
-  id: string;
-  title: string;
-  prompt: string;
-  status: "completed" | "processing" | "rendering";
-  videoUrl?: string;
-  aspectRatio: "16:9" | "9:16";
-  subtitles?: string[];
-  dubbingLanguage?: string;
-  durationSeconds: number;
-}
 
 export interface QuizQuestion {
   question: string;

@@ -5,7 +5,6 @@ import {
   Sparkles, 
   Code2, 
   Globe, 
-  Video, 
   ShieldCheck, 
   Heart, 
   MapPin, 
@@ -25,7 +24,6 @@ export const CreatorHubWorkspace: React.FC = () => {
     { title: "Voice Chat (STT + TTS)", desc: "Speech-to-Text & Text-to-Speech in Male & Female realistic voices." },
     { title: "Multi-modal Vision & OCR", desc: "Read documents, extract handwritten text, charts, screenshots, objects & locations." },
     { title: "Image, Logo & Banner Studio", desc: "Generate professional vector logos, banners, posters, background removal & 4K upscaling." },
-    { title: "Video AI Studio", desc: "Text-to-Video synthesis, AI Avatar presenter videos, auto subtitles & AI dubbing." },
     { title: "Live Grounded Web Search", desc: "Real-time news summaries, weather reports, stock/crypto updates & sports scores." },
     { title: "Math, Coding & Learning Lab", desc: "Step-by-step calculus/algebra solver, code diagnosis, science explainer & quiz generator." },
   ];

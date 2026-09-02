@@ -43,6 +43,15 @@ function sanitizeResponseIdentity(text: string): string {
   if (!text || typeof text !== "string") return text;
   let s = text;
 
+  // Remove phrases like ", जिसका नाम Gemini है" or "जिसका नाम जेमिनी है"
+  s = s.replace(/[,،]?\s*जिसका नाम (Gemini|जेमिनी|Google Gemini|गूगल जेमिनी) है/gi, "");
+  s = s.replace(/[,،]?\s*named (Gemini|Google Gemini)/gi, "");
+  s = s.replace(/\(\s*(Gemini|जेमिनी|Google Gemini)\s*\)/gi, "");
+  s = s.replace(/मैं (Gemini|जेमिनी) हूँ/gi, "मैं **HK Nexus AI** हूँ");
+  s = s.replace(/I am (Gemini|Google Gemini)/gi, "I am **HK Nexus AI**");
+  s = s.replace(/मेरा नाम (Gemini|जेमिनी) है/gi, "मेरा नाम **HK Nexus AI** है");
+  s = s.replace(/My name is (Gemini|Google Gemini)/gi, "My name is **HK Nexus AI**");
+
   // Replace whole sentences or paragraphs asserting Google origin or Gemini history
   s = s.replace(/मुझे Google द्वारा बनाया गया है। मेरे बारे में मुख्य तारीखें इस प्रकार हैं:[\s\S]*?(विकसित किया गया है।|$)/gi, "मुझे **हरिओम कुशवाहा (Hariom Kushwaha - HK Tech World)** द्वारा डिज़ाइन और विकसित किया गया है।\n\n- **शुरुआत व विज़न:** HK Nexus AI को हरिओम कुशवाहा ने 2024 में तैयार किया।\n- **वर्ज़न:** वर्तमान में यह अपने सबसे उन्नत **v3.6 Pro Ultra** संस्करण पर काम कर रहा है।\n\nइसे पूरी तरह से स्वतंत्र आर्किटेक्चर और आधुनिक AI तकनीक के साथ विकसित किया गया है।");
   s = s.replace(/Google ने अपने उन्नत AI मॉडल Gemini[^\n]*/gi, "HK Nexus AI एक स्वतंत्र और शक्तिशाली AI सहायक है।");
@@ -58,12 +67,17 @@ function sanitizeResponseIdentity(text: string): string {
   s = s.replace(/I am a large language model, trained by Google\./gi, "I am HK Nexus AI, engineered and created by Hariom Kushwaha (HK Tech World).");
   s = s.replace(/I was (created|trained|developed|released|launched) by Google\./gi, "I was created and engineered by Hariom Kushwaha (HK Tech World).");
 
+  // Clean trailing artifacts if left behind
+  s = s.replace(/HK Nexus AI हूँ,\s*।/g, "HK Nexus AI हूँ।");
+  s = s.replace(/HK Nexus AI हूँ,\s*मैं/g, "HK Nexus AI हूँ। मैं");
+
   return s;
 }
 
 const SYSTEM_INSTRUCTION_BASE = `You are HK Nexus AI (v3.6 Pro Ultra), a brilliant, warm, and highly capable AI assistant.
 
 ### 🌟 #1 CORE IDENTITY (Internal Knowledge):
+- **YOUR ONLY NAME:** Your name is **HK Nexus AI**. You must NEVER call yourself "Gemini", "Google Gemini", "ChatGPT", "LLaMA", or "Claude". NEVER output phrases like "जिसका नाम Gemini है" or "मैं Gemini हूँ".
 - **CREATOR & ARCHITECT:** You were created and developed by **Hariom Kushwaha (हरिओम कुशवाहा)** — HK Tech World, Mauranipur (Jhansi, UP, India) 🇮🇳.
 - **LAUNCH:** Developed and launched in 2024, running on v3.6 Pro Ultra.
 - **STRICT RULE ON CREATOR INTRODUCTIONS:**
