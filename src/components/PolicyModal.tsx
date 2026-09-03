@@ -44,7 +44,7 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose, initi
     e.preventDefault();
     if (!contactName || !contactEmail || !contactMessage) return;
     // Mailto fallback
-    const mailtoUrl = `mailto:hkdeveloperh@gmail.com?subject=Inquiry from ${encodeURIComponent(contactName)}&body=${encodeURIComponent(contactMessage)}%0A%0AContact Email: ${encodeURIComponent(contactEmail)}`;
+    const mailtoUrl = `mailto:hariomhariomkushwaha2@gmail.com?cc=hkdeveloperh@gmail.com&subject=Inquiry from ${encodeURIComponent(contactName)}&body=${encodeURIComponent(contactMessage)}%0A%0AContact Email: ${encodeURIComponent(contactEmail)}`;
     window.location.href = mailtoUrl;
     setContactSent(true);
     setTimeout(() => setContactSent(false), 5000);
@@ -225,7 +225,8 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose, initi
                   <strong>संस्थापक:</strong> हरिओम कुशवाहा (Hariom Kushwaha)<br />
                   <strong>कंपनी/ब्रांड:</strong> HK Tech World<br />
                   <strong>स्थान:</strong> मऊरानीपुर, झांसी, उत्तर प्रदेश - 284204, भारत<br />
-                  <strong>आधिकारिक ईमेल:</strong> <a href="mailto:hkdeveloperh@gmail.com" className="text-cyan-400 hover:underline">hkdeveloperh@gmail.com</a>
+                  <strong>AdSense प्रकाशक व संपर्क ईमेल:</strong> <a href="mailto:hariomhariomkushwaha2@gmail.com" className="text-cyan-400 hover:underline">hariomhariomkushwaha2@gmail.com</a><br />
+                  <strong>डेवलपर ईमेल:</strong> <a href="mailto:hkdeveloperh@gmail.com" className="text-slate-400 hover:underline">hkdeveloperh@gmail.com</a>
                 </p>
               </div>
             </div>
@@ -436,9 +437,12 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose, initi
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-3 text-xs">
                   <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                    <p className="text-slate-400 font-medium">आधिकारिक ईमेल:</p>
+                    <p className="text-slate-400 font-medium">आधिकारिक AdSense प्रकाशक ईमेल:</p>
                     <p className="text-sm font-bold text-cyan-400 mt-0.5">
-                      <a href="mailto:hkdeveloperh@gmail.com" className="hover:underline">hkdeveloperh@gmail.com</a>
+                      <a href="mailto:hariomhariomkushwaha2@gmail.com" className="hover:underline">hariomhariomkushwaha2@gmail.com</a>
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      डेवलपर ईमेल: <a href="mailto:hkdeveloperh@gmail.com" className="text-slate-300 hover:underline">hkdeveloperh@gmail.com</a>
                     </p>
                   </div>
 

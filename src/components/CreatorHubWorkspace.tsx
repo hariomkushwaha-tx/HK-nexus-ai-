@@ -74,7 +74,7 @@ export const CreatorHubWorkspace: React.FC<CreatorHubWorkspaceProps> = ({ onOpen
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactName || !contactEmail || !contactMessage) return;
-    const mailtoUrl = `mailto:hkdeveloperh@gmail.com?subject=Contact from ${encodeURIComponent(contactName)}&body=${encodeURIComponent(contactMessage)}%0A%0AEmail: ${encodeURIComponent(contactEmail)}`;
+    const mailtoUrl = `mailto:hariomhariomkushwaha2@gmail.com?cc=hkdeveloperh@gmail.com&subject=Contact from ${encodeURIComponent(contactName)}&body=${encodeURIComponent(contactMessage)}%0A%0AEmail: ${encodeURIComponent(contactEmail)}`;
     window.location.href = mailtoUrl;
     setSentSuccess(true);
     setTimeout(() => setSentSuccess(false), 5000);
@@ -125,10 +125,11 @@ export const CreatorHubWorkspace: React.FC<CreatorHubWorkspaceProps> = ({ onOpen
                 <span>100% Made in India</span>
               </span>
               <a 
-                href="mailto:hkdeveloperh@gmail.com" 
+                href="mailto:hariomhariomkushwaha2@gmail.com" 
                 className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-slate-300 flex items-center gap-1.5 transition-colors"
+                title="Google AdSense Publisher & Official Contact Email"
               >
-                <Mail className="w-3.5 h-3.5 text-cyan-400" /> hkdeveloperh@gmail.com
+                <Mail className="w-3.5 h-3.5 text-cyan-400" /> hariomhariomkushwaha2@gmail.com
               </a>
               <span className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-1.5 text-slate-300">
                 <Award className="w-3.5 h-3.5 text-amber-400" /> HK Nexus AI v3.6
