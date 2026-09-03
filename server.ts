@@ -311,14 +311,14 @@ app.post("/api/chat", async (req, res) => {
     currentParts.push({ text: `${message}${modePrompt}` });
     contents.push({ role: "user", parts: currentParts });
 
-    const modelName = mode === "math" || mode === "coding" ? "gemini-2.5-pro" : "gemini-2.5-flash";
+    const modelName = mode === "math" || mode === "coding" ? "gemini-3.1-pro-preview" : "gemini-3.8-flash";
 
     let response: any = null;
     let reply = "";
     let groundingChunks: any[] = [];
 
     // 1. Try Gemini with Smart Search (and fallback without tools)
-    const geminiModelsToTry = [modelName, "gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+    const geminiModelsToTry = [modelName, "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
     for (const modelToTry of geminiModelsToTry) {
       if (reply) break;
       // Attempt with search if it's a live search query
@@ -534,7 +534,7 @@ app.post("/api/chat/stream", async (req, res) => {
 
     // 2. Try Gemini Streaming with multiple models
     const ai = getGenAIClient(geminiKey as string);
-    const streamModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview"];
+    const streamModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
     let streamedSuccessfully = false;
 
     for (const modelToStream of streamModels) {
@@ -644,7 +644,7 @@ app.post("/api/vision/ocr", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
       contents: {
         parts: [
           { inlineData: { mimeType, data: base64Data } },
@@ -772,7 +772,7 @@ app.post("/api/web-search", async (req, res) => {
       try {
         const ai = getGenAIClient(geminiKey as string);
         const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-3.8-flash",
           contents: categoryPrompt,
           config: {
             systemInstruction: `${SYSTEM_INSTRUCTION_BASE}\nProvide current, factual, and well-structured live web intelligence in clean markdown.`,
@@ -1049,7 +1049,7 @@ app.get("/api/health", async (req, res) => {
       const start = Date.now();
       const ai = getGenAIClient();
       await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: "Ping",
       });
       geminiLatency = Date.now() - start;

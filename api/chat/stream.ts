@@ -147,7 +147,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
         }
         contents.push({ role: "user", parts: [{ text: message }] });
 
-        const searchModels = ["gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        const searchModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
         for (const modelToTry of searchModels) {
           try {
             const response = await ai.models.generateContent({
@@ -228,7 +228,7 @@ You have 100% full creative, analytical, technical, conversational, and philosop
         }
         contents.push({ role: "user", parts: [{ text: message }] });
 
-        const modelList = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"];
+        const modelList = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
         for (const modelToTry of modelList) {
           // Attempt standard or search
           try {

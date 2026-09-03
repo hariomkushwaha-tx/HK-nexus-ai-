@@ -41,6 +41,7 @@
     <meta property="og:description" content="Smart & Fast Multimodal AI created by Hariom Kushwaha (HK Tech World). Chat in Hindi & English, generate images, solve math & code." />
     <meta property="og:url" content="https://hk-nexus-ai.vercel.app/" />
     <meta property="og:site_name" content="HK Nexus AI" />
+    <meta name="site_name" content="HK Nexus AI" />
     <meta property="og:image" content="https://hk-nexus-ai.vercel.app/icon.svg" />
     <meta property="og:image:alt" content="HK Nexus AI Logo" />
 
@@ -50,25 +51,29 @@
     <meta name="twitter:description" content="Multimodal AI Assistant by Hariom Kushwaha (HK Tech World)." />
     <meta name="twitter:image" content="https://hk-nexus-ai.vercel.app/icon.svg" />
 
-    <!-- JSON-LD Structured Data for Google Search Site Name & Indexing -->
+    <!-- Google Search Official Site Name Structured Data (Strict Schema.org WebSite) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "HK Nexus AI",
+      "alternateName": ["HK Nexus", "HK Nexus AI Studio", "HK Tech World", "HK AI"],
+      "url": "https://hk-nexus-ai.vercel.app/",
+      "publisher": {
+        "@type": "Organization",
+        "name": "HK Tech World",
+        "url": "https://hk-nexus-ai.vercel.app/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://hk-nexus-ai.vercel.app/icon.svg"
+        }
+      }
+    }
+    </script>
+
+    <!-- JSON-LD WebApplication and FAQ Structured Data -->
     <script type="application/ld+json">
     [
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "@id": "https://hk-nexus-ai.vercel.app/#website",
-        "name": "HK Nexus AI",
-        "alternateName": ["HK Nexus", "HK Nexus AI Studio", "HK Tech World", "HK AI"],
-        "url": "https://hk-nexus-ai.vercel.app/",
-        "publisher": {
-          "@type": "Organization",
-          "name": "HK Tech World",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://hk-nexus-ai.vercel.app/icon.svg"
-          }
-        }
-      },
       {
         "@context": "https://schema.org",
         "@type": "WebApplication",
