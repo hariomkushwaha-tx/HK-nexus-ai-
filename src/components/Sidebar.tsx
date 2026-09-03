@@ -21,6 +21,7 @@ interface SidebarProps {
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
   onClearAllSessions: () => void;
   onExportCurrentChat?: () => void;
+  onOpenPolicy?: (tab: "about" | "privacy" | "terms" | "contact" | "disclaimer" | "faq" | "guide") => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteSession,
   onClearAllSessions,
   onExportCurrentChat,
+  onOpenPolicy,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -176,6 +178,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Trash2 className="w-3.5 h-3.5" />
             <span>Clear All History</span>
           </button>
+
+          {onOpenPolicy && (
+            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[11px] text-slate-400 px-1">
+              <button 
+                onClick={() => { onOpenPolicy("privacy"); onClose(); }} 
+                className="hover:text-cyan-400 transition-colors"
+              >
+                Privacy
+              </button>
+              <button 
+                onClick={() => { onOpenPolicy("terms"); onClose(); }} 
+                className="hover:text-cyan-400 transition-colors"
+              >
+                Terms
+              </button>
+              <button 
+                onClick={() => { onOpenPolicy("faq"); onClose(); }} 
+                className="hover:text-cyan-400 transition-colors"
+              >
+                FAQ
+              </button>
+              <button 
+                onClick={() => { onOpenPolicy("contact"); onClose(); }} 
+                className="hover:text-cyan-400 transition-colors"
+              >
+                Contact
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

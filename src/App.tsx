@@ -8,6 +8,8 @@ import { SearchWorkspace } from "./components/SearchWorkspace";
 import { LearningWorkspace } from "./components/LearningWorkspace";
 import { CreatorHubWorkspace } from "./components/CreatorHubWorkspace";
 import { SettingsModal } from "./components/SettingsModal";
+import { PolicyModal, PolicyTab } from "./components/PolicyModal";
+import { Footer } from "./components/Footer";
 
 const DEFAULT_SETTINGS: UserSettings = {
   memoryEnabled: true,
@@ -24,14 +26,22 @@ export default function App() {
   const [initialSearchQuery, setInitialSearchQuery] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isPolicyOpen, setIsPolicyOpen] = useState(false);
+  const [policyTab, setPolicyTab] = useState<PolicyTab>("privacy");
   const newChatRef = React.useRef<(() => void) | null>(null);
 
-  // Check URL parameters on initial load (for Google Search / Deep Links)
+  const handleOpenPolicy = (tab: PolicyTab = "privacy") => {
+    setPolicyTab(tab);
+    setIsPolicyOpen(true);
+  };
+
+  // Check URL parameters on initial load (for Google Search / Deep Links / AdSense Reviewers)
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab") as ActiveTab;
       const queryParam = params.get("q");
+      const policyParam = (params.get("policy") || params.get("page") || params.get("p")) as PolicyTab;
 
       if (tabParam && ["chat", "vision", "studio", "search", "learning", "creator"].includes(tabParam)) {
         setActiveTab(tabParam);
@@ -39,6 +49,10 @@ export default function App() {
       if (queryParam) {
         setInitialSearchQuery(queryParam);
         if (!tabParam) setActiveTab("search");
+      }
+      if (policyParam && ["about", "privacy", "terms", "contact", "disclaimer", "faq", "guide"].includes(policyParam)) {
+        setPolicyTab(policyParam);
+        setIsPolicyOpen(true);
       }
     } catch (e) {
       console.warn("URL params parsing error:", e);
@@ -91,6 +105,7 @@ export default function App() {
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
             onNewChatRef={newChatRef}
+            onOpenPolicy={handleOpenPolicy}
           />
         )}
 
@@ -108,8 +123,11 @@ export default function App() {
 
         {activeTab === "learning" && <LearningWorkspace />}
 
-        {activeTab === "creator" && <CreatorHubWorkspace />}
+        {activeTab === "creator" && <CreatorHubWorkspace onOpenPolicy={handleOpenPolicy} />}
       </main>
+
+      {/* Global AdSense and Policy Footer (Visible on all non-chat tabs) */}
+      {activeTab !== "chat" && <Footer onOpenPolicy={handleOpenPolicy} />}
 
       {/* Settings Modal */}
       <SettingsModal
@@ -117,6 +135,13 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         setSettings={setSettings}
+      />
+
+      {/* Official Legal & Policy Modal (Privacy Policy, Terms, About, FAQ, Contact) */}
+      <PolicyModal
+        isOpen={isPolicyOpen}
+        onClose={() => setIsPolicyOpen(false)}
+        initialTab={policyTab}
       />
     </div>
   );

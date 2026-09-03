@@ -28,8 +28,11 @@ import {
   ThumbsUp,
   ThumbsDown,
   Edit3,
-  Check
+  Check,
+  HelpCircle,
+  Mail
 } from "lucide-react";
+import { PolicyTab } from "./PolicyModal";
 
 interface ChatWorkspaceProps {
   settings: UserSettings;
@@ -38,6 +41,7 @@ interface ChatWorkspaceProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
   onNewChatRef?: React.MutableRefObject<(() => void) | null>;
+  onOpenPolicy?: (tab: PolicyTab) => void;
 }
 
 // Helper to enforce pure HK Nexus (Hariom Kushwaha) identity
@@ -82,7 +86,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   onOpenSettings,
   isSidebarOpen,
   setIsSidebarOpen,
-  onNewChatRef
+  onNewChatRef,
+  onOpenPolicy
 }) => {
   // Multi-chat sessions state
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
@@ -1099,6 +1104,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         onDeleteSession={handleDeleteSession}
         onClearAllSessions={handleClearAllSessions}
         onExportCurrentChat={messages.length > 0 ? exportChatAsTxt : undefined}
+        onOpenPolicy={onOpenPolicy}
       />
 
       {/* Main Chat Area */}
@@ -1173,6 +1179,43 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* Quick Links for Guide, FAQs and Legal compliance */}
+            {onOpenPolicy && (
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-3 pb-1 text-xs">
+                <button
+                  onClick={() => onOpenPolicy("guide")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 text-cyan-300 flex items-center gap-1.5 transition-all text-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>उपयोग गाइड और फायदे</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenPolicy("faq")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 text-slate-300 flex items-center gap-1.5 transition-all text-xs"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+                  <span>FAQ</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenPolicy("privacy")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 text-slate-300 flex items-center gap-1.5 transition-all text-xs"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Privacy Policy</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenPolicy("contact")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 text-slate-300 flex items-center gap-1.5 transition-all text-xs"
+                >
+                  <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Contact Us</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           messages.map((msg, idx) => {
